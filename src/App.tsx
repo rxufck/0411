@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { bindBack } from './telegram';
-import { syncStatus, usePremium } from './premium';
-import { Paywall } from './components/Paywall';
+import { openPaywall, syncStatus, usePremium } from './premium';
+import { PaywallHost } from './components/Paywall';
 import type { Exercise, Question, TopicId } from './types';
 import type { TheoryCard } from './types';
 import { buildControl, buildReview, buildUnitDrill, findQuestion, pickFresh, topicById, unitKey } from './data/course';
@@ -94,6 +94,9 @@ export default function App() {
     unitDrill(topic, u);
   };
 
+  // Платные действия: без подписки вместо них открывается предложение подписки.
+  const paid = (fn: () => void) => (prem.active ? fn() : openPaywall());
+
   const seen = (id: string) => p.stats[id]?.seen ?? 0;
   const quiz = (title: string, qs: { id: string }[], extra: Partial<Extract<Overlay, { kind: 'lesson' }>> = {}) =>
     reviewOrQuiz('quiz', title, qs.map((q) => q.id), extra);
@@ -133,7 +136,13 @@ export default function App() {
     );
   }
 
-  if (overlay?.kind === 'cards') return <Cards title={overlay.title} deck={overlay.deck} onClose={() => setOverlay(null)} />;
+  if (overlay?.kind === 'cards')
+    return (
+      <>
+        <Cards title={overlay.title} deck={overlay.deck} onClose={() => setOverlay(null)} />
+        <PaywallHost />
+      </>
+    );
 
   if (overlay?.kind === 'lesson') {
     const o = overlay;
@@ -184,8 +193,7 @@ export default function App() {
       <main className="main">
         {page === 'daily' && <DailyScreen onBack={() => setPage(null)} />}
                 {!page && tab === 'learn' && <Home onTopic={setSheet} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
-        {!page && tab === 'exam' && !prem.active && <Paywall title="Экзамен" />}
-        {!page && tab === 'exam' && prem.active && (
+        {!page && tab === 'exam' && (
           <ExamScreen
             onExit={() => openTab('exam')}
             onTicket={(n) => db && quiz(`Билет ${n}`, db.byTicket[n - 1], { ticket: n })}
@@ -199,13 +207,12 @@ export default function App() {
         )}
         {!page && tab === 'review' && (
           <ReviewScreen
-            locked={!prem.active}
-            onMistakes={(ids) => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' })}
-            onTopicReview={(t) => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) })}
+            onMistakes={(ids) => paid(() => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' }))}
+            onTopicReview={(t) => paid(() => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) }))}
             onTheory={(t) => setOverlay({ kind: 'theory', topic: t, readOnly: true })}
             onCards={(title, deck) => setOverlay({ kind: 'cards', title, deck })}
             onReadCard={(topic, cards, title) => setOverlay({ kind: 'theory', topic, readOnly: true, cards, title })}
-            onTrain={(title, ids) => reviewOrQuiz('review', title, ids, { color: '#ff9600' })}
+            onTrain={(title, ids) => paid(() => reviewOrQuiz('review', title, ids, { color: '#ff9600' }))}
           />
         )}
         {!page && tab === 'profile' && <ProfileScreen onDaily={() => setPage('daily')} />}
@@ -223,6 +230,8 @@ export default function App() {
           }}
         />
       )}
+
+      <PaywallHost />
 
       {noHearts && (
         <Modal onClose={() => setNoHearts(false)}>

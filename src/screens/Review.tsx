@@ -7,7 +7,6 @@ import type { Question } from '../types';
 import { dueQuestions, topicAccuracy, useProgress } from '../store';
 import { Btn, TopicBadge } from '../components/UI';
 import { UiIcon } from '../components/Icons';
-import { PaywallCard } from '../components/Paywall';
 
 const plural = (n: number, one: string, few: string, many: string) => {
   const m10 = n % 10;
@@ -21,7 +20,6 @@ export const errorsWord = (n: number) => `${n} ${plural(n, 'ошибка', 'ош
 const topicNameOf = (t: TopicId) => TOPICS.find((x) => x.topic === t)?.title ?? '';
 
 export function ReviewScreen({
-  locked,
   onMistakes,
   onTopicReview,
   onTheory,
@@ -29,7 +27,6 @@ export function ReviewScreen({
   onReadCard,
   onTrain,
 }: {
-  locked: boolean;
   onMistakes: (ids: string[]) => void;
   onTopicReview: (t: TopicId) => void;
   onTheory: (t: TopicId) => void;
@@ -80,9 +77,7 @@ export function ReviewScreen({
         </button>
       </div>
 
-      {tab === 'mistakes' && locked && <PaywallCard />}
-
-      {tab === 'mistakes' && !locked && (
+      {tab === 'mistakes' && (
         <>
           {recs.length > 0 && (
             <section className="recs">

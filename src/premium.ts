@@ -11,6 +11,7 @@ interface State {
   until: number;
   busy: boolean;
   error: string;
+  paywall: boolean;
 }
 
 const readCache = () => {
@@ -21,7 +22,7 @@ const readCache = () => {
   }
 };
 
-let state: State = { until: readCache(), busy: false, error: '' };
+let state: State = { until: readCache(), busy: false, error: '', paywall: false };
 const listeners = new Set<() => void>();
 
 function set(patch: Partial<State>) {
@@ -78,6 +79,10 @@ export async function subscribe() {
   }
 }
 
+/** Показать окно с предложением подписки. */
+export const openPaywall = () => set({ paywall: true, error: '' });
+export const closePaywall = () => set({ paywall: false });
+
 /** Вне Telegram всё открыто. Внутри: нужна действующая подписка. */
 export function usePremium() {
   const s = useSyncExternalStore(
@@ -88,5 +93,5 @@ export function usePremium() {
     () => state,
   );
   const active = !inTelegram() || s.until > Date.now();
-  return { active, until: s.until, busy: s.busy, error: s.error };
+  return { active, until: s.until, busy: s.busy, error: s.error, paywall: s.paywall };
 }

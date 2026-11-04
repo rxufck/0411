@@ -1,14 +1,18 @@
-import { PRICE_STARS, subscribe, usePremium } from '../premium';
-import { Btn } from './UI';
+import { closePaywall, PRICE_STARS, subscribe, usePremium } from '../premium';
+import { Btn, Sheet } from './UI';
 import { UiIcon } from './Icons';
 
-/** Экран-замок: экзамен и разбор ошибок доступны по подписке. */
-export function Paywall({ title }: { title: string }) {
+/** Окно подписки поверх любого экрана: открывается, когда человек нажал на платную часть. */
+export function PaywallHost() {
+  const { paywall, active } = usePremium();
+  if (!paywall || active) return null;
   return (
-    <div className="page paywall">
-      <h1 className="page-title">{title}</h1>
+    <Sheet onClose={closePaywall}>
       <PaywallCard />
-    </div>
+      <Btn wide variant="ghost" onClick={closePaywall}>
+        Не сейчас
+      </Btn>
+    </Sheet>
   );
 }
 
@@ -23,8 +27,9 @@ export function PaywallCard() {
         <h2>Подписка на месяц</h2>
         <ul className="paywall-list">
           <li>Экзамен ГИБДД: 40 билетов, марафон и разбор по темам</li>
-          <li>Разбор ошибок: повторение и подсказки, где ты ошибаешься</li>
-          <li>Обучение, карточки и жизни остаются бесплатными</li>
+          <li>Разбор ошибок и повторение по темам</li>
+          <li>Карточки без лимита: бесплатно только 20 за раз</li>
+          <li>Обучение по темам и жизни остаются бесплатными</li>
         </ul>
         <Btn big wide disabled={busy} onClick={subscribe}>
           {busy ? 'Открываем оплату…' : `Открыть за ${PRICE_STARS} Stars в месяц`}

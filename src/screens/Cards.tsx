@@ -1,3 +1,5 @@
+import { PaywallCard } from '../components/Paywall';
+import { usePremium } from '../premium';
 import { useRef, useState } from 'react';
 import type { Question } from '../types';
 import { LETTERS } from '../components/Exercises';
@@ -13,6 +15,8 @@ const THRESHOLD = 90;
  * Карточки: вопрос на лицевой стороне, ответ с пояснением — на обороте.
  * Свайп вправо — «знаю», влево — «не знаю». Не знаешь — вопрос попадает в «Повторение».
  */
+const FREE_CARDS = 20;
+
 export function Cards({ title, deck, onClose }: { title: string; deck: Question[]; onClose: () => void }) {
   const { p, record } = useProgress();
   const [queue, setQueue] = useState(deck);
@@ -20,11 +24,15 @@ export function Cards({ title, deck, onClose }: { title: string; deck: Question[
   const [flipped, setFlipped] = useState(false);
   const [dx, setDx] = useState(0);
   const [known, setKnown] = useState(0);
+  const [swiped, setSwiped] = useState(0);
+  const prem = usePremium();
   const [missed, setMissed] = useState<Question[]>([]);
   const start = useRef<{ x: number; moved: boolean } | null>(null);
 
   const q = queue[pos];
   const done = pos >= queue.length;
+  // Бесплатно: 20 карточек. Дальше предлагаем подписку.
+  const limited = !prem.active && swiped >= FREE_CARDS && !done;
 
   const answer = (ok: boolean) => {
     if (!q) return;
@@ -34,6 +42,7 @@ export function Cards({ title, deck, onClose }: { title: string; deck: Question[
     else setMissed((m) => [...m, q]);
     setFlipped(false);
     setDx(0);
+    setSwiped((n) => n + 1);
     setPos((i) => i + 1);
   };
 
@@ -64,6 +73,21 @@ export function Cards({ title, deck, onClose }: { title: string; deck: Question[
     setMissed([]);
     setFlipped(false);
   };
+
+  if (limited) {
+    return (
+      <div className="screen-full finish v3 ok">
+        <div className="finish-body">
+          <h1 className="finish-title">20 карточек пройдено</h1>
+          <p className="muted">Это бесплатный лимит. Подписка открывает все карточки без ограничений.</p>
+          <PaywallCard />
+          <Btn wide variant="ghost" onClick={onClose}>
+            Закончить
+          </Btn>
+        </div>
+      </div>
+    );
+  }
 
   if (done) {
     return (
