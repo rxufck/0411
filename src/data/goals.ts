@@ -1,5 +1,6 @@
 import type { Progress } from '../store';
 import { TOPICS } from './course';
+import type { UiIconId } from '../components/Icons';
 
 export interface DailyTask {
   id: string;
@@ -10,7 +11,7 @@ export interface DailyTask {
 }
 
 export const DAILY_TASKS: DailyTask[] = [
-  { id: 'steps', title: 'Пройди 2 урока', goal: 2, xp: 20, progress: (p) => p.daily.steps },
+  { id: 'steps', title: 'Пройди 2 шага обучения', goal: 2, xp: 20, progress: (p) => p.daily.steps },
   { id: 'signs', title: 'Ответь правильно на 5 вопросов о знаках', goal: 5, xp: 20, progress: (p) => p.daily.signs },
   { id: 'fix', title: 'Исправь 3 ошибки', goal: 3, xp: 20, progress: (p) => p.daily.fixed },
 ];
@@ -21,28 +22,28 @@ export interface Achievement {
   id: string;
   title: string;
   desc: string;
-  icon: string;
+  icon: UiIconId;
   color: string;
   done: (p: Progress) => boolean;
 }
 
-const stepsAt = (p: Progress, k: number) => TOPICS.filter((t) => (p.steps[t.topic] ?? 0) >= k).length;
+const unitsRead = (p: Progress) => p.done.filter((k) => k.includes(':u-')).length;
+const controlsDone = (p: Progress, topics: readonly string[]) => topics.every((t) => p.done.includes(`${t}:control`));
 
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first', title: 'Первый шаг', desc: 'Пройди первый шаг обучения', icon: '🚦', color: '#2bb24c', done: (p) => stepsAt(p, 1) >= 1 },
-  { id: 'theory', title: 'Теоретик', desc: 'Изучи теорию пяти тем', icon: '📖', color: '#1f7cf0', done: (p) => stepsAt(p, 1) >= 5 },
+  { id: 'first', title: 'Первый шаг', desc: 'Прочитай теорию первого блока', icon: 'lights', color: '#58cc02', done: (p) => unitsRead(p) >= 1 },
+  { id: 'theory', title: 'Теоретик', desc: 'Прочитай теорию десяти блоков', icon: 'book', color: '#1cb0f6', done: (p) => unitsRead(p) >= 10 },
   {
     id: 'signs',
     title: 'Знаток знаков',
     desc: 'Сдай контрольные по всем группам знаков',
-    icon: '⚠️',
-    color: '#ff9a3c',
-    done: (p) => (['warning', 'priority', 'prohib', 'mandatory'] as const).every((t) => (p.steps[t] ?? 0) >= 4),
+    icon: 'warn',
+    color: '#ff9600',
+    done: (p) => controlsDone(p, ['warning', 'priority', 'prohib', 'mandatory']),
   },
-  { id: 'perfect', title: 'Без ошибок', desc: 'Сдай контрольную на 10 из 10', icon: '🎯', color: '#e5484d', done: (p) => Object.values(p.best).some((b) => b === 10) },
-  { id: 'streak3', title: 'Три дня подряд', desc: 'Занимайся 3 дня подряд', icon: '🔥', color: '#ff7a3d', done: (p) => p.streak >= 3 },
-  { id: 'streak7', title: 'Неделя за рулём', desc: 'Серия 7 дней — особый стикер', icon: '🏅', color: '#ffb800', done: (p) => p.streak >= 7 || p.flags.includes('streak7') },
-  { id: 'city', title: 'Водитель города', desc: 'Проедь маршрут без единой ошибки', icon: '🏙️', color: '#9b6bff', done: (p) => p.flags.includes('city') },
-  { id: 'exam', title: 'Экзамен сдан', desc: 'Сдай экзамен в формате ГИБДД', icon: '📝', color: '#00a47d', done: (p) => p.flags.includes('exam') },
-  { id: 'master', title: 'Мастер ПДД', desc: 'Пройди все темы до конца', icon: '🏆', color: '#d6a700', done: (p) => stepsAt(p, 4) === TOPICS.length },
+  { id: 'perfect', title: 'Без ошибок', desc: 'Сдай контрольную без единой ошибки', icon: 'target', color: '#e5484d', done: (p) => p.flags.includes('perfect') },
+  { id: 'streak3', title: 'Три дня подряд', desc: 'Занимайся 3 дня подряд', icon: 'fire', color: '#ff7a3d', done: (p) => p.streak >= 3 },
+  { id: 'streak7', title: 'Неделя за рулём', desc: 'Серия 7 дней — особый стикер', icon: 'medal', color: '#ffb800', done: (p) => p.streak >= 7 || p.flags.includes('streak7') },
+  { id: 'exam', title: 'Экзамен сдан', desc: 'Сдай экзамен в формате ГИБДД', icon: 'sheet', color: '#00a47d', done: (p) => p.flags.includes('exam') },
+  { id: 'master', title: 'Мастер ПДД', desc: 'Сдай контрольные по всем темам', icon: 'trophy', color: '#d6a700', done: (p) => controlsDone(p, TOPICS.map((t) => t.topic)) },
 ];

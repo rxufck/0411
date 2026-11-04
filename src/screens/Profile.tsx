@@ -2,16 +2,17 @@ import { useState } from 'react';
 import { TOPICS } from '../data/course';
 import { ACHIEVEMENTS, DAILY_TASKS, STREAK_REWARD } from '../data/goals';
 import { levelInfo, topicAccuracy, useProgress } from '../store';
-import { Inspector } from '../components/Art';
-import { Avatar, BackBtn, Btn, Modal, StatTile, useHearts } from '../components/UI';
+import { Avatar, BackBtn, BadgeIcon, Btn, InfoRow, Modal, Section, TopicBadge, useHearts } from '../components/UI';
+import { UiIcon } from '../components/Icons';
 
-export function ProfileScreen({ onDaily, onSigns }: { onDaily: () => void; onSigns: () => void }) {
+export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
   const { p, setName, setSettings, reset } = useProgress();
   const lv = levelInfo(p.xp);
   const { hearts } = useHearts();
   const [allAch, setAllAch] = useState(false);
   const [settings, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState(false);
+  const [resetAsk, setResetAsk] = useState(false);
   const [nameDraft, setNameDraft] = useState(p.name);
 
   const acc = topicAccuracy(p);
@@ -32,133 +33,87 @@ export function ProfileScreen({ onDaily, onSigns }: { onDaily: () => void; onSig
 
   return (
     <div className="page">
-      <div className="page-head">
-        <h1 className="page-title">Мой прогресс</h1>
-        <button className="mini-btn" onClick={() => setSettingsOpen(true)} aria-label="Настройки">
-          ⚙️
-        </button>
-      </div>
-
-      <div className="card prof-card">
-        <Avatar size={78} />
-        <div className="prof-info">
-          {editName ? (
-            <form
-              className="name-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                setName(nameDraft.trim().slice(0, 20));
-                setEditName(false);
-              }}
-            >
-              <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Твоё имя" />
-              <button className="mini-btn">✓</button>
-            </form>
-          ) : (
-            <button className="prof-name" onClick={() => setEditName(true)}>
-              {p.name || 'Без имени'} <span>✏️</span>
-            </button>
-          )}
-          <small className="muted">
-            {lv.title} · Уровень {lv.level}
-          </small>
-          <div className="mini-bar big">
-            <div style={{ width: `${lv.progress * 100}%` }} />
+      <div className="card goal-card prof-card-new">
+        <div className="prof-top">
+          <Avatar size={64} name={p.name} />
+          <div className="prof-info">
+            {editName ? (
+              <form
+                className="name-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  setName(nameDraft.trim().slice(0, 20));
+                  setEditName(false);
+                }}
+              >
+                <input autoFocus value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Твоё имя" />
+                <button className="mini-btn" aria-label="Сохранить"><BadgeIcon id="check" dark /></button>
+              </form>
+            ) : (
+              <button className="prof-name" onClick={() => setEditName(true)}>
+                {p.name || 'Без имени'} <span><BadgeIcon id="pencil" dark /></span>
+              </button>
+            )}
+            <small className="muted">
+              {lv.title}, уровень {lv.level}
+            </small>
           </div>
-          <small className="muted text-right">
-            {p.xp} / {lv.to} XP
-          </small>
-        </div>
-      </div>
-
-      <div className="tiles">
-        <StatTile icon="🔥" value={p.streak} label="дней" />
-        <StatTile icon="❤️" value={hearts} label="сердец" />
-        <StatTile icon="⭐" value={p.xp} label="XP" />
-      </div>
-
-      <div className="card">
-        <div className="card-head">
-          <h3>Достижения</h3>
-          <button className="link" onClick={() => setAllAch(true)}>
-            Все
+          <button className="mini-btn" onClick={() => setSettingsOpen(true)} aria-label="Настройки">
+            <BadgeIcon id="gear" dark />
           </button>
         </div>
-        <div className="badges">
-          {ACHIEVEMENTS.slice(0, 5).map((a) => (
-            <Badge key={a.id} icon={a.icon} color={a.color} on={a.done(p)} />
-          ))}
+        <div className="mini-bar big">
+          <div style={{ width: `${lv.progress * 100}%` }} />
         </div>
         <small className="muted">
-          Получено {unlocked.length} из {ACHIEVEMENTS.length}
+          {p.xp} из {lv.to} XP до следующего уровня
         </small>
       </div>
 
-      <div className="card">
-        <h3>Статистика</h3>
-        <div className="stat-list">
-          <div>
-            <span>✅ Правильных ответов</span>
-            <b>{seen ? Math.round((right / seen) * 100) : 0}%</b>
-          </div>
-          <div>
-            <span>🧩 Самая сложная тема</span>
-            <b>{hardest ? hardest.t.title : '—'}</b>
-          </div>
-          <div>
-            <span>💚 Любимая тема</span>
-            <b>{favorite && favorite !== hardest ? favorite.t.title : '—'}</b>
-          </div>
-          <div>
-            <span>📝 Экзамены сданы</span>
-            <b>
-              {p.exams.filter((e) => e.passed).length} из {p.exams.length}
-            </b>
-          </div>
-          <div>
-            <span>🚗 Поездок по городу</span>
-            <b>{p.rides}</b>
+      <Section title="Итоги" sub="Как идёт обучение" tone="green">
+        <InfoRow tone="gold" icon="fire" title="Дней подряд" sub="Сколько дней ты занимаешься без пропусков" value={p.streak} />
+        <InfoRow tone="red" icon="heart" title="Жизни" sub="Тратятся на ошибках в практике, восстанавливаются" value={`${hearts} из 5`} />
+        <InfoRow tone="green" icon="check" title="Правильных ответов" value={`${seen ? Math.round((right / seen) * 100) : 0}%`} />
+        <InfoRow tone="blue" icon="trophy" title="Экзамены сданы" value={`${p.exams.filter((e) => e.passed).length} из ${p.exams.length}`} />
+        <InfoRow tone="purple" icon="puzzle" title="Самая сложная тема" value={hardest ? hardest.t.title : '—'} />
+        <InfoRow tone="teal" icon="heart" title="Любимая тема" value={favorite && favorite !== hardest ? favorite.t.title : '—'} />
+      </Section>
+
+      <Section title="Достижения" sub={`Получено ${unlocked.length} из ${ACHIEVEMENTS.length}`} tone="gold">
+        <div className="card">
+          <div className="badges">
+            {ACHIEVEMENTS.slice(0, 5).map((a) => (
+              <Badge key={a.id} id={a.id} color={a.color} on={a.done(p)} />
+            ))}
           </div>
         </div>
-      </div>
+        <InfoRow tone="gold" icon="medal" title="Все достижения" sub="Что уже получено и что осталось" onClick={() => setAllAch(true)} />
+      </Section>
 
-      <div className="card">
-        <h3>Твои слабые темы</h3>
+      <Section title="Слабые темы" sub="Над чем стоит поработать" tone="red">
         {weak.length === 0 ? (
-          <p className="muted">Пока нечего подтягивать. Отвечай на вопросы — и здесь появится подсказка, что повторить.</p>
+          <div className="card">
+            <p className="muted">Пока нечего подтягивать. Отвечай на вопросы — и здесь появится подсказка, что повторить.</p>
+          </div>
         ) : (
           weak.map((w) => (
-            <div key={w.t.topic} className="weak-row">
-              <span>
-                {w.t.emoji} {w.t.title}
+            <div key={w.t.topic} className="topic-row static">
+              <TopicBadge topic={w.t.topic} size={48} />
+              <span className="topic-row-text">
+                <b>{w.t.title}</b>
+                <small>Верных ответов: {w.pct}%</small>
+                <span className="topic-row-bar">
+                  <i style={{ width: `${w.pct}%`, background: '#d03d3d' }} />
+                </span>
               </span>
-              <div className="acc-bar">
-                <div style={{ width: `${w.pct}%` }} />
-              </div>
-              <b>{w.pct}%</b>
             </div>
           ))
         )}
-      </div>
+      </Section>
 
-      <div className="link-cards">
-        <button className="card rev-row clickable" onClick={onDaily}>
-          <span className="big-ico">🎯</span>
-          <div className="rev-text">
-            <b>Ежедневные задания</b>
-            <small className="muted">Выполнено {DAILY_TASKS.filter((t) => t.progress(p) >= t.goal).length} из {DAILY_TASKS.length}</small>
-          </div>
-          <span className="chev">›</span>
-        </button>
-        <button className="card rev-row clickable" onClick={onSigns}>
-          <span className="big-ico">🚸</span>
-          <div className="rev-text">
-            <b>Справочник знаков</b>
-            <small className="muted">Все знаки с объяснениями</small>
-          </div>
-          <span className="chev">›</span>
-        </button>
-      </div>
+      <Section title="Задания" tone="blue">
+        <InfoRow tone="blue" icon="target" title="Ежедневные задания" sub={`Выполнено ${DAILY_TASKS.filter((t) => t.progress(p) >= t.goal).length} из ${DAILY_TASKS.length}`} onClick={onDaily} />
+      </Section>
 
       {allAch && (
         <Modal onClose={() => setAllAch(false)}>
@@ -166,7 +121,7 @@ export function ProfileScreen({ onDaily, onSigns }: { onDaily: () => void; onSig
           <div className="ach-list">
             {ACHIEVEMENTS.map((a) => (
               <div key={a.id} className={`ach ${a.done(p) ? 'on' : ''}`}>
-                <Badge icon={a.icon} color={a.color} on={a.done(p)} />
+                <Badge id={a.id} color={a.color} on={a.done(p)} />
                 <div>
                   <b>{a.title}</b>
                   <small className="muted">{a.desc}</small>
@@ -180,36 +135,35 @@ export function ProfileScreen({ onDaily, onSigns }: { onDaily: () => void; onSig
         </Modal>
       )}
 
+      {resetAsk && (
+        <Modal onClose={() => setResetAsk(false)}>
+          <h2>Сбросить прогресс?</h2>
+          <p>Весь прогресс будет удалён. Это действие нельзя отменить.</p>
+          <Btn big wide variant="red" onClick={() => (reset(), setResetAsk(false), setSettingsOpen(false))}>
+            Сбросить
+          </Btn>
+          <Btn wide variant="ghost" onClick={() => setResetAsk(false)}>
+            Отмена
+          </Btn>
+        </Modal>
+      )}
+
       {settings && (
         <Modal onClose={() => setSettingsOpen(false)}>
           <h2>Настройки</h2>
           <div className="settings">
             <label className="toggle">
               <input type="checkbox" checked={p.settings.sound} onChange={(e) => setSettings({ sound: e.target.checked })} />
-              <span>🔔 Звуки</span>
+              <span><UiIcon id="bell" size={18} /> Звуки</span>
             </label>
-            <label className="toggle">
-              <input type="checkbox" checked={p.settings.voice} onChange={(e) => setSettings({ voice: e.target.checked })} />
-              <span>🗣️ Голос инструктора</span>
-            </label>
-            <div className="goal-row">
-              <span>🎯 Цель на день:</span>
-              {[20, 50, 100].map((g) => (
-                <button key={g} className={`chip ${p.settings.dailyGoal === g ? 'chip-on' : ''}`} onClick={() => setSettings({ dailyGoal: g })}>
-                  {g} XP
-                </button>
-              ))}
-            </div>
             <Btn
               variant="ghost"
-              onClick={() => {
-                if (confirm('Сбросить весь прогресс? Это действие нельзя отменить.')) reset();
-              }}
+              onClick={() => setResetAsk(true)}
             >
               Сбросить прогресс
             </Btn>
           </div>
-          <p className="muted small">Вопросы составлены по Правилам дорожного движения РФ. Перед экзаменом сверяйтесь с актуальной редакцией ПДД. Машинки и деревья в сценах — Kenney (kenney.nl, CC0).</p>
+          <p className="muted small">Вопросы составлены по Правилам дорожного движения РФ. Перед экзаменом сверяйтесь с актуальной редакцией ПДД.</p>
           <Btn wide onClick={() => setSettingsOpen(false)}>
             Готово
           </Btn>
@@ -219,10 +173,12 @@ export function ProfileScreen({ onDaily, onSigns }: { onDaily: () => void; onSig
   );
 }
 
-function Badge({ icon, color, on }: { icon: string; color: string; on: boolean }) {
+const ACH_ICON: Record<string, string> = { first: 'check', theory: 'cards', signs: 'alert', perfect: 'target', streak3: 'fire', streak7: 'medal', exam: 'ticket', master: 'trophy' };
+
+function Badge({ id, color, on }: { id: string; color: string; on: boolean }) {
   return (
-    <div className={`badge ${on ? 'on' : ''}`} style={on ? { background: color } : undefined}>
-      <span>{on ? icon : '🔒'}</span>
+    <div className={`ach-badge ${on ? 'on' : ''}`} style={on ? { background: color, boxShadow: '0 3px 0 rgba(0,0,0,.25)' } : undefined}>
+      <BadgeIcon id={on ? ACH_ICON[id] ?? 'star' : 'lock'} dark={!on} />
     </div>
   );
 }
@@ -231,70 +187,68 @@ export function DailyScreen({ onBack }: { onBack: () => void }) {
   const { p, claimDaily, addFlag, addXp } = useProgress();
   const streakDone = p.streak >= STREAK_REWARD.days;
   const streakClaimed = p.flags.includes(STREAK_REWARD.flag);
+  const ICONS = ['bolt', 'cards', 'alert'];
   return (
     <div className="page">
       <div className="page-head">
         <BackBtn onClick={onBack} />
-        <h1 className="page-title">Ежедневные задания</h1>
+        <h1 className="page-title">Задания на день</h1>
       </div>
-      <div className="card streak-card">
-        <span className="streak-fire">🔥</span>
-        <div>
-          <b>Серия: {p.streak} дн.</b>
-          <small className="muted">{p.streak ? 'Продолжай в том же духе!' : 'Пройди любой урок, чтобы начать серию.'}</small>
-        </div>
-      </div>
-      {DAILY_TASKS.map((t) => {
-        const v = Math.min(t.goal, t.progress(p));
-        const done = v >= t.goal;
-        const claimed = p.daily.claimed.includes(t.id);
-        return (
-          <div key={t.id} className={`card task ${done ? 'done' : ''}`}>
-            <span className="task-check">{done ? '✓' : ''}</span>
-            <div className="task-text">
-              <b>{t.title}</b>
-              <div className="acc-row">
-                <div className="acc-bar">
-                  <div style={{ width: `${(v / t.goal) * 100}%`, background: '#2bb24c' }} />
-                </div>
+      <InfoRow tone="gold" icon="fire" title="Дней подряд" sub={p.streak ? 'Продолжай в том же духе' : 'Пройди любой блок, чтобы начать'} value={p.streak} />
+      <Section title="Сегодня" sub="Выполни задания и забери опыт" tone="blue">
+        {DAILY_TASKS.map((t, k) => {
+          const v = Math.min(t.goal, t.progress(p));
+          const done = v >= t.goal;
+          const claimed = p.daily.claimed.includes(t.id);
+          return (
+            <div key={t.id} className="topic-row static">
+              <span className="topic-badge" style={{ background: done ? '#388201' : '#137aaa', boxShadow: done ? '0 3px 0 #2d6801' : '0 3px 0 #0f6288', width: 48, height: 48 }}>
+                <BadgeIcon id={done ? 'check' : ICONS[k % ICONS.length]} />
+              </span>
+              <span className="topic-row-text">
+                <b>{t.title}</b>
                 <small>
-                  {v}/{t.goal}
+                  {v} из {t.goal}
                 </small>
-              </div>
+                <span className="topic-row-bar">
+                  <i style={{ width: `${(v / t.goal) * 100}%`, background: done ? '#388201' : '#137aaa' }} />
+                </span>
+              </span>
+              {done && !claimed ? (
+                <Btn className="pill" variant="green" onClick={() => claimDaily(t.id, t.xp)}>
+                  +{t.xp} XP
+                </Btn>
+              ) : (
+                <span className="row-value">{claimed ? 'Получено' : `+${t.xp} XP`}</span>
+              )}
             </div>
-            {done && !claimed ? (
-              <Btn className="pill" variant="yellow" onClick={() => claimDaily(t.id, t.xp)}>
-                +{t.xp} XP
-              </Btn>
-            ) : (
-              <span className={`task-xp ${claimed ? 'claimed' : ''}`}>{claimed ? 'Получено' : `⭐ +${t.xp} XP`}</span>
-            )}
-          </div>
-        );
-      })}
-      <div className="card reward-card">
-        <span className="reward-gift">🎁</span>
-        <div>
-          <b>Награда за серию</b>
-          <div className="reward-xp">⭐ +{STREAK_REWARD.xp} XP</div>
-          <small className="muted">Достигни {STREAK_REWARD.days} дней подряд и получи особый стикер «Неделя за рулём»!</small>
+          );
+        })}
+      </Section>
+      <Section title="Награда за серию" sub={`${STREAK_REWARD.days} дней подряд`} tone="gold">
+        <div className="topic-row static">
+          <span className="topic-badge" style={{ background: '#aa6400', boxShadow: '0 3px 0 #885000', width: 48, height: 48 }}>
+            <BadgeIcon id="star" />
+          </span>
+          <span className="topic-row-text">
+            <b>+{STREAK_REWARD.xp} XP и стикер «Неделя за рулём»</b>
+            <small>Занимайся {STREAK_REWARD.days} дней подряд: сейчас {Math.min(p.streak, STREAK_REWARD.days)} из {STREAK_REWARD.days}</small>
+          </span>
+          {streakDone && !streakClaimed && (
+            <Btn
+              className="pill"
+              variant="green"
+              onClick={() => {
+                addFlag(STREAK_REWARD.flag);
+                addXp(STREAK_REWARD.xp);
+              }}
+            >
+              Забрать
+            </Btn>
+          )}
+          {streakClaimed && <span className="row-value">Получено</span>}
         </div>
-        {streakDone && !streakClaimed && (
-          <Btn
-            className="pill"
-            variant="yellow"
-            onClick={() => {
-              addFlag(STREAK_REWARD.flag);
-              addXp(STREAK_REWARD.xp);
-            }}
-          >
-            Забрать
-          </Btn>
-        )}
-      </div>
-      <div className="center">
-        <Inspector mood="happy" size={110} />
-      </div>
+      </Section>
     </div>
   );
 }

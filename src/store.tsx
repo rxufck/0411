@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { TopicId } from './types';
+import { cloudLoad, cloudSave } from './telegram';
 
 export interface ExamRecord {
   date: string;
@@ -33,8 +34,10 @@ export interface Progress {
   streak: number;
   lastActive: string | null;
   today: { date: string; xp: number };
-  /** Сколько шагов пройдено в теме (0..4). */
+  /** Сколько из четырёх отмечаемых шагов пройдено в теме (0..4). */
   steps: Partial<Record<TopicId, number>>;
+  /** Пройденные шаги в виде «тема:шаг» — шаги можно проходить в любом порядке. */
+  done: string[];
   /** Лучший результат контрольной. */
   best: Partial<Record<TopicId, number>>;
   stats: Record<string, QStat>;
@@ -44,8 +47,6 @@ export interface Progress {
   daily: Daily;
   flags: string[];
   exams: ExamRecord[];
-  rides: number;
-  bestRide: number;
   /** Лучший результат по официальным билетам: число ошибок. */
   tickets: Record<number, number>;
   bookmarks: string[];
@@ -53,6 +54,7 @@ export interface Progress {
 }
 
 const KEY = 'pdd-quest-v2';
+const OLD_ORDER = ['theory', 'practice', 'practice2', 'control'];
 export const MAX_HEARTS = 5;
 export const HEART_MS = 20 * 60 * 1000;
 const BOX_DAYS = [0, 1, 3, 7, 16];
@@ -70,6 +72,7 @@ const initial = (): Progress => ({
   lastActive: null,
   today: { date: todayStr(), xp: 0 },
   steps: {},
+  done: [],
   best: {},
   stats: {},
   mistakes: [],
@@ -78,8 +81,6 @@ const initial = (): Progress => ({
   daily: freshDaily(),
   flags: [],
   exams: [],
-  rides: 0,
-  bestRide: 0,
   tickets: {},
   bookmarks: [],
   settings: { sound: true, voice: true, dailyGoal: 50 },
@@ -106,7 +107,18 @@ function load(): Progress {
   try {
     const raw = localStorage.getItem(KEY);
     if (!raw) return initial();
-    const p = { ...initial(), ...JSON.parse(raw) } as Progress;
+    return normalize(JSON.parse(raw));
+  } catch {
+    return initial();
+  }
+}
+
+function normalize(saved: Partial<Progress>): Progress {
+  try {
+    const p = { ...initial(), ...saved } as Progress;
+    // Старый формат: шаги шли строго по порядку, переводим в список пройденных.
+    if (!p.done.length)
+      p.done = (Object.entries(p.steps) as [TopicId, number][]).flatMap(([t, n]) => OLD_ORDER.slice(0, n).map((k) => `${t}:${k}`));
     if (p.today.date !== todayStr()) p.today = { date: todayStr(), xp: 0 };
     if (p.daily.date !== todayStr()) p.daily = freshDaily();
     const y = addDays(-1);
@@ -133,14 +145,13 @@ interface Store {
   p: Progress;
   addXp: (n: number) => void;
   record: (id: string, topic: TopicId, ok: boolean, opts?: { sign?: boolean }) => void;
-  completeStep: (topic: TopicId, index: number, score?: number) => void;
+  completeStep: (topic: TopicId, kind: string, score?: number) => void;
   fixMistake: (id: string) => void;
   addMistakes: (ids: string[], topicOf: (id: string) => TopicId | undefined) => void;
   loseHeart: () => void;
   claimDaily: (id: string, xp: number) => void;
   addFlag: (f: string) => void;
   addExam: (r: ExamRecord) => void;
-  finishRide: (score: number, total: number) => void;
   recordTicket: (ticket: number, errors: number) => void;
   toggleBookmark: (id: string) => void;
   setName: (n: string) => void;
@@ -163,9 +174,30 @@ function touchDay(p: Progress): Progress {
 export function ProgressProvider({ children }: { children: ReactNode }) {
   const [p, setP] = useState<Progress>(load);
 
+  // В Telegram прогресс живёт ещё и в облаке аккаунта: при запуске берём более свежую копию.
+  const synced = useRef(false);
+  useEffect(() => {
+    cloudLoad().then((c) => {
+      synced.current = true;
+      if (!c) return;
+      const local = Number(localStorage.getItem(KEY + '-t') ?? 0);
+      if (c.t > local) {
+        try {
+          setP(normalize(JSON.parse(c.data)));
+        } catch {
+          /* облачная копия повреждена — остаёмся на локальной */
+        }
+      }
+    });
+  }, []);
+
   useEffect(() => {
     try {
-      localStorage.setItem(KEY, JSON.stringify(p));
+      const json = JSON.stringify(p);
+      const t = Date.now();
+      localStorage.setItem(KEY, json);
+      localStorage.setItem(KEY + '-t', String(t));
+      if (synced.current) cloudSave(json, t);
     } catch {
       /* приватный режим — прогресс просто не сохранится */
     }
@@ -194,14 +226,16 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           const daily = ok && opts?.sign ? { ...p.daily, signs: p.daily.signs + 1 } : p.daily;
           return { ...p, stats: { ...p.stats, [id]: stat }, mistakes, daily };
         }),
-      completeStep: (topic, index, score) =>
+      completeStep: (topic, kind, score) =>
         setP((p0) => {
           const p = touchDay(p0);
-          const cur = p.steps[topic] ?? 0;
+          const key = `${topic}:${kind}`;
+          const done = p.done.includes(key) ? p.done : [...p.done, key];
           const best = score !== undefined ? { ...p.best, [topic]: Math.max(p.best[topic] ?? 0, score) } : p.best;
           return {
             ...p,
-            steps: cur === index ? { ...p.steps, [topic]: cur + 1 } : p.steps,
+            done,
+            steps: { ...p.steps, [topic]: OLD_ORDER.filter((k) => done.includes(`${topic}:${k}`)).length },
             best,
             daily: { ...p.daily, steps: p.daily.steps + 1 },
           };
@@ -231,13 +265,6 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       },
       addFlag: (f) => setP((p) => (p.flags.includes(f) ? p : { ...p, flags: [...p.flags, f] })),
       addExam: (r) => setP((p) => ({ ...p, exams: [r, ...p.exams].slice(0, 30), flags: r.passed && !p.flags.includes('exam') ? [...p.flags, 'exam'] : p.flags })),
-      finishRide: (score, total) =>
-        setP((p) => ({
-          ...p,
-          rides: p.rides + 1,
-          bestRide: Math.max(p.bestRide, score),
-          flags: score === total && !p.flags.includes('city') ? [...p.flags, 'city'] : p.flags,
-        })),
       recordTicket: (ticket, errors) => setP((p) => ({ ...p, tickets: { ...p.tickets, [ticket]: Math.min(errors, p.tickets[ticket] ?? Infinity) } })),
       toggleBookmark: (id) => setP((p) => ({ ...p, bookmarks: p.bookmarks.includes(id) ? p.bookmarks.filter((b) => b !== id) : [...p.bookmarks, id] })),
       setName: (n) => setP((p) => ({ ...p, name: n })),

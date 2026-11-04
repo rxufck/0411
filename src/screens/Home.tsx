@@ -1,13 +1,22 @@
 import type { TopicId } from '../types';
-import { CONTROL_PASS, CONTROL_SIZE, isUnlocked, STAGES, STEPS, type StepKind, TOPICS, topicById } from '../data/course';
-import { THEORY } from '../data/theory';
-import { useProgress } from '../store';
-import { TopicThumb } from '../components/Art';
-import { Btn, ProfileHeader, Sheet } from '../components/UI';
+import { controlPass, controlSize, isMastered, nextStep, nextUnit, STAGES, stepKey, ticketMastery, TOPICS, topicById, topicComplete, unitKey, unitMastery } from '../data/course';
+import { topicUnits, type Unit } from '../data/units';
+import { useTickets } from '../data/tickets';
+import { useProgress, type Progress } from '../store';
+import { UiIcon } from '../components/Icons';
+import { BadgeIcon, Btn, ProfileHeader, Sheet, TopicBadge } from '../components/UI';
 import { DAILY_TASKS } from '../data/goals';
 
-const ROW = 104;
-const OFFSETS = [0, 56, 92, 56, 0, -56, -92, -56];
+const plural = (n: number, one: string, few: string, many: string) =>
+  n % 10 === 1 && n % 100 !== 11 ? one : [2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100) ? few : many;
+
+/** Доля пройденного в теме: прочитанные блоки, освоенные билеты и контрольная — поровну. */
+function topicProgress(topic: TopicId, p: Progress) {
+  const units = topicUnits(topic);
+  const read = units.length ? units.filter((u) => p.done.includes(unitKey(topic, u))).length / units.length : 0;
+  const m = ticketMastery(topic, p.stats);
+  return (read + (m.total ? m.done / m.total : 0) + Number(p.done.includes(stepKey(topic, 'control')))) / 3;
+}
 
 export function Home({
   onTopic,
@@ -21,124 +30,140 @@ export function Home({
   onProfile: () => void;
 }) {
   const { p } = useProgress();
+  const { db } = useTickets();
   const dailyDone = DAILY_TASKS.filter((t) => t.progress(p) >= t.goal).length;
-  const allDone = TOPICS.every((t) => (p.steps[t.topic] ?? 0) >= 4);
-  let n = 0;
+  const complete = (t: TopicId) => topicComplete(t, p.done, p.stats);
+  const current = TOPICS.find((t) => !complete(t.topic))?.topic;
+  const totalQ = db?.questions.length ?? 800;
+  const masteredQ = db ? db.questions.filter((q) => isMastered(p.stats, q.id)).length : 0;
+  const cleanTickets = Object.values(p.tickets).filter((e) => e === 0).length;
+  const passed = p.exams.some((e) => e.passed);
 
   return (
     <div className="home">
       <ProfileHeader onProfile={onProfile} />
-      <div className="path-title">
-        <h1>Твой путь</h1>
-        <p className="muted">Проходи темы по шагам: теория → практика → закрепление → контрольная.</p>
+
+      <div className="progress-card">
+        <div className="pc-stats">
+          <div className="pc-stat">
+            <small>Освоено вопросов</small>
+            <b>
+              {masteredQ}
+              <span> из {totalQ}</span>
+            </b>
+            <span className="pc-bar"><i style={{ width: `${(masteredQ / totalQ) * 100}%` }} /></span>
+          </div>
+          <div className="pc-stat">
+            <small>Билетов без ошибок</small>
+            <b>
+              {cleanTickets}
+              <span> из 40</span>
+            </b>
+            <span className="pc-bar gold"><i style={{ width: `${(cleanTickets / 40) * 100}%` }} /></span>
+          </div>
+        </div>
+        <button className="pc-daily" onClick={onDaily}>
+          <BadgeIcon id="target" />
+          <span>
+            <b>Задания на день</b>
+            <small>Выполнено {dailyDone} из {DAILY_TASKS.length}</small>
+          </span>
+          <span className="chev">›</span>
+        </button>
       </div>
 
-      <button className="daily-chip" onClick={onDaily}>
-        <span className="daily-ico">🎯</span>
-        <span>
-          <b>Задания на день</b>
-          <small>
-            Выполнено {dailyDone} из {DAILY_TASKS.length}
-          </small>
-        </span>
-        <span className="chev">›</span>
-      </button>
-
-      {STAGES.map((st, si) => (
-        <section key={si} className="stage">
-          <div className="stage-head">
-            <span className="stage-num">Этап {si + 1}</span>
-            <b>{st.title}</b>
-            <small>{st.subtitle}</small>
-          </div>
-          <div className="stage-path" style={{ height: st.topics.length * ROW }}>
-            {st.topics.map((tid, k) => {
-              const gi = TOPICS.findIndex((x) => x.topic === tid);
-              const t = TOPICS[gi];
-              const steps = p.steps[tid] ?? 0;
-              const open = isUnlocked(gi, p.steps);
-              const done = steps >= 4;
-              const off = OFFSETS[gi % OFFSETS.length];
-              const nextOff = OFFSETS[(gi + 1) % OFFSETS.length];
-              n += 1;
-              return (
-                <div key={tid} className="pnode" style={{ top: k * ROW, transform: `translateX(${off}px)` }}>
-                  {k < st.topics.length - 1 && (
-                    <svg className="pconn" width={240} height={ROW} viewBox={`-120 0 240 ${ROW}`}>
-                      <path
-                        d={`M0 40 C0 ${ROW * 0.7}, ${nextOff - off} ${ROW * 0.4}, ${nextOff - off} ${ROW + 40}`}
-                        stroke={(p.steps[tid] ?? 0) >= 2 ? '#7fd88a' : '#dbe5f0'}
-                        strokeWidth={14}
-                        fill="none"
-                        strokeLinecap="round"
-                      />
-                    </svg>
-                  )}
-                  <button className={`pnode-btn ${open ? '' : 'locked'}`} disabled={!open} onClick={() => onTopic(tid)}>
-                    <div className={`pnode-ring ${done ? 'done' : open && steps < 4 ? 'current' : ''}`}>
-                      <TopicThumb thumb={t.thumb} size={74} locked={!open} />
-                      {done && <span className="pnode-check">✓</span>}
-                    </div>
-                    <div className="pnode-text">
-                      <b style={{ color: open ? undefined : '#9aa5b4' }}>
-                        {n}. {t.title}
-                      </b>
-                      <span className="pnode-meta">
-                        {open ? '🟢' : '🔒'} {steps}/4 {done && '⭐'}
+      <div className="course">
+        {STAGES.map((st, si) => {
+          const done = st.topics.filter(complete).length;
+          return (
+            <section key={st.title} className="stage">
+              <header className="stage-head" style={{ borderColor: st.color }}>
+                <h2>
+                  {si + 1}. {st.title}
+                </h2>
+                <small>
+                  {st.subtitle}. Пройдено {done} из {st.topics.length}
+                </small>
+              </header>
+              {st.topics.map((tid) => {
+                const t = topicById(tid);
+                const isDone = complete(tid);
+                const prog = topicProgress(tid, p);
+                const units = topicUnits(tid).length;
+                return (
+                  <button key={tid} className={`topic-row ${tid === current ? 'current' : ''} ${isDone ? 'done' : ''}`} onClick={() => onTopic(tid)}>
+                    <TopicBadge topic={tid} size={48} />
+                    <span className="topic-row-text">
+                      <b>{t.title}</b>
+                      <small>
+                        {units} {plural(units, 'блок', 'блока', 'блоков')}. {isDone ? 'Освоено' : `Пройдено ${Math.round(prog * 100)}%`}
+                      </small>
+                      <span className="topic-row-bar">
+                        <i style={{ width: `${(isDone ? 1 : prog) * 100}%`, background: isDone ? 'var(--green)' : t.color }} />
                       </span>
-                    </div>
+                    </span>
+                    {isDone ? (
+                      <span className="topic-row-state"><UiIcon id="check" size={22} /></span>
+                    ) : tid === current ? (
+                      <span className="topic-row-go" style={{ background: t.color, boxShadow: `0 3px 0 ${t.shade}` }}>
+                        {prog > 0 ? 'Продолжить' : 'Начать'}
+                      </span>
+                    ) : (
+                      <span className="chev">›</span>
+                    )}
                   </button>
-                </div>
-              );
-            })}
-          </div>
-        </section>
-      ))}
+                );
+              })}
+            </section>
+          );
+        })}
 
-      <section className="stage">
-        <div className="stage-head">
-          <span className="stage-num">Финиш</span>
-          <b>Экзамен</b>
-          <small>Билеты в формате ГИБДД</small>
-        </div>
-        <button className="pnode-btn final" onClick={onExam}>
-          <div className={`pnode-ring ${allDone ? 'current' : ''}`}>
-            <TopicThumb thumb={{ emoji: '🏁' }} size={74} />
-          </div>
-          <div className="pnode-text">
-            <b>{n + 1}. Экзамен</b>
-            <span className="pnode-meta">{p.exams.some((e) => e.passed) ? '✅ сдан' : '20 вопросов'}</span>
-          </div>
+        <button className="topic-row exam-row" onClick={onExam}>
+          <span className="topic-badge exam-badge"><UiIcon id="trophy" size={24} /></span>
+          <span className="topic-row-text">
+            <b>Экзамен ГИБДД</b>
+            <small>{passed ? 'Сдан' : `40 билетов по 20 вопросов. Без ошибок: ${cleanTickets} из 40`}</small>
+          </span>
+          <span className="chev">›</span>
         </button>
-      </section>
+      </div>
     </div>
   );
 }
 
-/** Карточка темы: четыре шага обучения. */
+/** Карточка темы: блоки с теорией и билетами, затем контрольная. */
 export function TopicSheet({
   topic,
   onClose,
-  onStep,
+  onControl,
+  onUnit,
   onReread,
-  onOfficial,
-  officialCount,
 }: {
   topic: TopicId;
   onClose: () => void;
-  onStep: (k: StepKind) => void;
+  onControl: () => void;
+  onUnit: (u: Unit) => void;
   onReread: () => void;
-  onOfficial: () => void;
-  officialCount: number;
 }) {
   const { p } = useProgress();
+  const { db } = useTickets();
   const t = topicById(topic);
-  const steps = p.steps[topic] ?? 0;
   const best = p.best[topic];
+  const rec = nextStep(topic, p.done, p.stats);
+  const units = topicUnits(topic);
+  const recUnit = nextUnit(topic, p.done, p.stats);
+  const controlDone = p.done.includes(stepKey(topic, 'control'));
+  const controlNow = rec === 'control';
+  const size = controlSize(topic);
+  const pill = (current: boolean, done: boolean) => (
+    <span className={`step-pill ${current ? 'on' : ''}`} style={current ? { background: t.color, boxShadow: `0 4px 0 ${t.shade}` } : undefined}>
+      {current ? 'Начать' : done ? <UiIcon id="repeat" size={18} /> : <UiIcon id="chevron" size={18} />}
+    </span>
+  );
   return (
     <Sheet onClose={onClose}>
       <div className="tsheet-head">
-        <TopicThumb thumb={t.thumb} size={84} />
+        <TopicBadge topic={topic} size={64} />
         <div>
           <small className="muted">{t.chapter} ПДД</small>
           <h2>{t.title}</h2>
@@ -146,54 +171,49 @@ export function TopicSheet({
         </div>
       </div>
       <div className="steps">
-        {STEPS.map((s, i) => {
-          const done = steps > i;
-          const current = steps === i;
+        {units.map((u, i) => {
+          const um = unitMastery(topic, u, p.stats);
+          const read = p.done.includes(unitKey(topic, u));
+          const done = read && um.total > 0 && um.done === um.total;
+          const current = recUnit === u;
           return (
-            <div key={s.kind} className={`step ${done ? 'done' : current ? 'current' : 'locked'}`}>
-              <div className="step-ico" style={current ? { background: t.color } : undefined}>
-                {done ? '✓' : s.icon}
+            <button key={u.id} className={`step ${done ? 'done' : current ? 'current' : ''}`} onClick={() => onUnit(u)} disabled={!db}>
+              <div className="step-ico" style={current ? { background: t.color, boxShadow: `0 4px 0 ${t.shade}` } : undefined}>
+                {done ? <UiIcon id="check" size={26} /> : <UiIcon id={read ? 'ticket' : 'book'} size={26} />}
               </div>
               <div className="step-text">
                 <b>
-                  Шаг {i + 1}. {s.title}
+                  {i + 1}. {u.title}
                 </b>
-                <small>
-                  {s.kind === 'theory' ? `${THEORY[topic].length} карточек · ` : ''}
-                  {s.kind === 'control' ? `${CONTROL_SIZE} вопросов, нужно ${CONTROL_PASS} верных` : s.desc}
-                  {s.kind === 'control' && best !== undefined ? ` · лучший: ${best}/${CONTROL_SIZE}` : ''}
-                </small>
+                <small>{read ? 'Билеты блока с подсказками' : `Сначала теория: ${u.cards.length} ${plural(u.cards.length, 'карточка', 'карточки', 'карточек')}`}</small>
+                <span className="step-bar">
+                  <span className="step-bar-track">
+                    <i style={{ width: `${um.total ? (um.done / um.total) * 100 : 0}%`, background: t.color }} />
+                  </span>
+                  <em>{db ? `освоено ${um.done} из ${um.total}` : 'загружаем билеты…'}</em>
+                </span>
               </div>
-              {current && (
-                <Btn onClick={() => onStep(s.kind)} className="step-go">
-                  Начать
-                </Btn>
-              )}
-              {done && (
-                <button className="step-redo" onClick={() => onStep(s.kind)}>
-                  ↻
-                </button>
-              )}
-              {!done && !current && <span className="step-lock">🔒</span>}
-            </div>
+              {pill(current, done)}
+            </button>
           );
         })}
-      </div>
-      {officialCount > 0 && (
-        <button className="official-btn" onClick={onOfficial}>
-          <span className="hub-ico blue">🎫</span>
-          <span className="hub-text">
-            <b>Вопросы из билетов ГИБДД</b>
-            <small>{officialCount} настоящих экзаменационных вопросов по теме</small>
-          </span>
-          <span className="chev">›</span>
+        <button className={`step ${controlDone ? 'done' : controlNow ? 'current' : ''}`} onClick={onControl} disabled={!db}>
+          <div className="step-ico" style={controlNow ? { background: t.color, boxShadow: `0 4px 0 ${t.shade}` } : undefined}>
+            {controlDone ? <UiIcon id="check" size={26} /> : <UiIcon id="flag" size={26} />}
+          </div>
+          <div className="step-text">
+            <b>{units.length + 1}. Контрольная</b>
+            <small>
+              {size} {plural(size, 'вопрос', 'вопроса', 'вопросов')} по всей теме, нужно {controlPass(size)} верных
+              {best !== undefined ? `. Лучший результат: ${best}/${size}` : ''}
+            </small>
+          </div>
+          {pill(controlNow, controlDone)}
         </button>
-      )}
-      {steps > 0 && (
-        <Btn variant="white" wide onClick={onReread}>
-          📖 Перечитать теорию
-        </Btn>
-      )}
+      </div>
+      <Btn variant="white" wide onClick={onReread}>
+        <UiIcon id="book" size={20} /> Перечитать теорию
+      </Btn>
     </Sheet>
   );
 }

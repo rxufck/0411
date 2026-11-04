@@ -1,15 +1,17 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { Exercise, TopicId } from '../types';
-import { CONTROL_PASS } from '../data/course';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import type { Exercise, TheoryCard, TopicId } from '../types';
+import { controlPass } from '../data/course';
 import { useProgress } from '../store';
 import { play } from '../sound';
-import { FindSign, LETTERS, MatchPairs, MultipleChoice, type Status } from '../components/Exercises';
-import { Inspector } from '../components/Art';
+import { LETTERS, MultipleChoice, type Status } from '../components/Exercises';
 import { BackBtn, Btn, Confetti, fmtMs, ProgressBar, StatTile, useHearts } from '../components/UI';
 import { Theory } from './Theory';
+import { UiIcon } from '../components/Icons';
 import { isTicketQuestion } from '../data/tickets';
+import { topicUnits } from '../data/units';
+import { hintFor, optionToDrop } from '../data/hints';
 
-export type LessonMode = 'practice' | 'control' | 'review' | 'quiz';
+export type LessonMode = 'practice' | 'control' | 'review' | 'quiz' | 'drill';
 
 export interface LessonResult {
   xp: number;
@@ -23,7 +25,9 @@ export interface LessonResult {
 const PRAISE = ['Отлично!', 'Супер!', 'Так держать!', 'Верно!', 'Молодец!', 'Великолепно!'];
 const SIGN_TOPICS: TopicId[] = ['warning', 'priority', 'prohib', 'mandatory'];
 
-const exId = (e: Exercise) => (e.type === 'mc' ? e.q.id : e.id);
+const exId = (e: Exercise) => e.q.id;
+/** Сколько раз задание может вернуться в конец урока. */
+const REQUEUE_MAX: Partial<Record<LessonMode, number>> = { practice: 1, review: 1, drill: 3 };
 
 export function Lesson({
   mode,
@@ -35,11 +39,14 @@ export function Lesson({
   onFinish,
   onRestart,
   onReview,
+  theoryCards,
 }: {
   mode: LessonMode;
   title: string;
   color: string;
   topic?: TopicId;
+  /** Теория блока: её открывает кнопка «Теория» вместо теории всей темы. */
+  theoryCards?: TheoryCard[];
   exercises: Exercise[];
   onClose: () => void;
   onFinish: (r: LessonResult) => void;
@@ -49,7 +56,7 @@ export function Lesson({
   const { p, record, loseHeart, fixMistake, toggleBookmark } = useProgress();
   const sound = p.settings.sound;
   const usesHearts = mode === 'practice' || mode === 'control';
-  const canHint = mode === 'practice';
+  const canHint = mode === 'practice' || mode === 'drill' || mode === 'review';
   const { hearts, nextIn } = useHearts();
 
   const [queue, setQueue] = useState<Exercise[]>(exercises);
@@ -58,9 +65,9 @@ export function Lesson({
   const [status, setStatus] = useState<Status>('idle');
   const [crossed, setCrossed] = useState<number[]>([]);
   const [hintShown, setHintShown] = useState(false);
+  const [dropped, setDropped] = useState<number[]>([]);
   const [sheet, setSheet] = useState(false);
-  const [matchDone, setMatchDone] = useState(false);
-  const [requeued, setRequeued] = useState<Set<string>>(new Set());
+  const [requeued, setRequeued] = useState<Record<string, number>>({});
   const [solved, setSolved] = useState(0);
   const [firstTry, setFirstTry] = useState(0);
   const [xp, setXp] = useState(0);
@@ -72,8 +79,8 @@ export function Lesson({
 
   const ex = queue[pos];
   const total = exercises.length;
-  const q = ex?.type === 'mc' ? ex.q : null;
-  const canCheck = (status === 'idle' || status === 'retry') && !sheet && (ex?.type === 'match' ? matchDone : selected !== null && !crossed.includes(selected));
+  const q = ex ? ex.q : null;
+  const canCheck = (status === 'idle' || status === 'retry') && !sheet && selected !== null && !crossed.includes(selected) && !dropped.includes(selected);
 
   const finalize = useCallback(
     (ok: boolean, clean: boolean) => {
@@ -83,11 +90,18 @@ export function Lesson({
         record(q.id, q.topic, ok && clean, { sign: isSign });
         if (mode === 'review' && ok) fixMistake(q.id);
       }
+      const id = ex ? exId(ex) : '';
+      // Ошибочное задание вернётся в конце урока; в тренировке билетов — и решённое с подсказкой.
+      const again = !!ex && (!ok || (mode === 'drill' && !clean)) && (requeued[id] ?? 0) < (REQUEUE_MAX[mode] ?? 0);
+      if (again) {
+        setRequeued((r) => ({ ...r, [id]: (r[id] ?? 0) + 1 }));
+        setQueue((qq) => [...qq, ex]);
+      }
       if (ok) {
         const g = clean ? 5 : 2;
         setGained(g);
         setXp((x) => x + g);
-        setSolved((s) => s + 1);
+        if (!again) setSolved((s) => s + 1);
         if (clean) setFirstTry((f) => f + 1);
         setPraise(PRAISE[Math.floor(Math.random() * PRAISE.length)]);
         play('correct', sound);
@@ -95,13 +109,7 @@ export function Lesson({
         setGained(0);
         play('wrong', sound);
         if (usesHearts) loseHeart();
-        const id = ex ? exId(ex) : '';
-        // В практике и повторении ошибочное задание вернётся в конце урока.
-        if ((mode === 'practice' || mode === 'review') && ex && !requeued.has(id)) {
-          setRequeued((r) => new Set(r).add(id));
-          setQueue((qq) => [...qq, ex]);
-        }
-        if (mode === 'control' || mode === 'quiz') setSolved((s) => s + 1);
+        if (mode === 'control' || mode === 'quiz' || (mode === 'drill' && !again)) setSolved((s) => s + 1);
       }
       setStatus(ok ? 'right' : 'wrong');
       setSheet(true);
@@ -111,8 +119,7 @@ export function Lesson({
 
   const check = useCallback(() => {
     if (!ex || !canCheck) return;
-    if (ex.type === 'match') return finalize(true, true);
-    const ok = ex.type === 'mc' ? selected === ex.q.correct : ex.choices[selected!]?.id === ex.id.replace('find-', '');
+    const ok = selected === ex.q.correct;
     if (ok) return finalize(true, crossed.length === 0 && !hintShown);
     // В практике первая ошибка — не провал: подсказка и вторая попытка.
     if (canHint && crossed.length === 0) {
@@ -141,8 +148,8 @@ export function Lesson({
     setStatus('idle');
     setCrossed([]);
     setHintShown(false);
+    setDropped([]);
     setSheet(false);
-    setMatchDone(false);
   }, [usesHearts, hearts, pos, queue.length, sound]);
 
   const tryAgain = () => {
@@ -159,53 +166,60 @@ export function Lesson({
         else next();
       }
       const n = Number(e.key);
-      if (!sheet && n >= 1 && n <= 4 && ex && ex.type !== 'match') {
-        const count = ex.type === 'mc' ? ex.q.options.length : ex.choices.length;
-        if (n <= count && !crossed.includes(n - 1)) setSelected(n - 1);
+      if (!sheet && n >= 1 && n <= 4 && ex) {
+        if (n <= ex.q.options.length && !crossed.includes(n - 1) && !dropped.includes(n - 1)) setSelected(n - 1);
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [phase, theoryOpen, sheet, status, check, next, ex, crossed]);
+  }, [phase, theoryOpen, sheet, status, check, next, ex, crossed, dropped]);
 
   const correctTotal = mode === 'control' || mode === 'quiz' ? firstTry : solved;
-  const passed = mode === 'control' ? firstTry >= CONTROL_PASS : true;
-  const bonus = mode === 'control' ? (passed ? 20 + (firstTry === total ? 10 : 0) : 0) : mode === 'practice' ? 10 : 5;
+  const passed = mode === 'control' ? firstTry >= controlPass(total) : true;
+  const bonus = mode === 'control' ? (passed ? 20 + (firstTry === total ? 10 : 0) : 0) : mode === 'practice' || mode === 'drill' ? 10 : 5;
 
-  if (theoryOpen && topic) return <Theory topic={topic} readOnly onClose={() => setTheoryOpen(false)} />;
+  if (theoryOpen && topic) return <Theory topic={topic} cards={theoryCards ?? topicUnits(topic).flatMap((u) => u.cards)} title={theoryCards && title} readOnly onClose={() => setTheoryOpen(false)} />;
 
   if (phase === 'done') {
     const acc = Math.round((firstTry / total) * 100);
     const secs = Math.round((Date.now() - startedAt) / 1000);
     const finalXp = xp + bonus;
     return (
-      <div className="screen-full finish">
+      <div className={`screen-full finish v3 ${passed ? 'ok' : 'bad'}`}>
         {passed && <Confetti />}
-        <Inspector mood={passed ? 'cheer' : 'sad'} size={170} />
+        <FinishHero mood={passed ? 'cheer' : 'sad'}>
+          {mode === 'control' && (
+            <span className="finish-score">
+              <b>{firstTry}</b> из {total}
+            </span>
+          )}
+        </FinishHero>
+        <div className="finish-body">
         {mode === 'control' ? (
           <>
             <h1 className={`finish-title ${passed ? '' : 'bad'}`}>{passed ? 'Контрольная сдана!' : 'Пока не сдано'}</h1>
-            <div className={`score-ring ${passed ? 'ok' : 'bad'}`}>
-              {firstTry}/{total}
-            </div>
             <p className="muted">
               {passed
                 ? firstTry === total
                   ? 'Ни одной ошибки — тема освоена на отлично!'
                   : 'Тема освоена. Ошибки добавлены в «Повторение».'
-                : `Нужно минимум ${CONTROL_PASS} верных ответов. Повтори теорию и попробуй снова — у тебя получится!`}
+                : `Нужно минимум ${controlPass(total)} верных ответов. Повтори теорию и попробуй снова — у тебя получится!`}
             </p>
           </>
         ) : (
           <>
-            <h1 className="finish-title">{mode === 'review' ? 'Повторение завершено!' : 'Урок пройден!'}</h1>
-            <p className="muted">{title}</p>
+            <h1 className="finish-title">{mode === 'review' ? 'Повторение завершено!' : mode === 'drill' ? 'Тренировка пройдена!' : 'Урок пройден!'}</h1>
+            <p className="muted">
+              {mode === 'drill'
+                ? `С первого раза: ${Math.min(firstTry, total)} из ${total}. Вопросы с ошибками вернутся в следующей тренировке, пока не будут решены без ошибок.`
+                : title}
+            </p>
           </>
         )}
         <div className="tiles">
-          <StatTile label="опыт" value={`+${finalXp}`} icon="💎" />
-          <StatTile label="точность" value={`${Math.min(100, acc)}%`} icon="🎯" />
-          <StatTile label="время" value={`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`} icon="⏱" />
+          <StatTile label="опыт" value={`+${finalXp}`} icon={<UiIcon id="gem" size={26} />} />
+          <StatTile label="точность" value={`${Math.min(100, acc)}%`} icon={<UiIcon id="target" size={26} />} />
+          <StatTile label="время" value={`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`} icon={<UiIcon id="clock" size={26} />} />
         </div>
         <Btn big wide variant="yellow" onClick={() => onFinish({ xp: finalXp, correct: correctTotal, total, answered: total, passed })}>
           Далее
@@ -215,17 +229,23 @@ export function Lesson({
             Попробовать ещё раз
           </Btn>
         )}
+        </div>
       </div>
     );
   }
 
   if (phase === 'failed') {
     return (
-      <div className="screen-full finish">
-        <Inspector mood="sad" size={170} />
-        <h1 className="finish-title bad">Сердечки закончились</h1>
+      <div className="screen-full finish v3 bad">
+        <FinishHero mood="sad">
+          <span className="finish-score">
+            <UiIcon id="heart" size={22} /> <b>0</b>
+          </span>
+        </FinishHero>
+        <div className="finish-body">
+        <h1 className="finish-title bad">Жизни закончились</h1>
         <p className="muted">
-          Не беда! Новое сердечко появится через <b>{fmtMs(nextIn)}</b>. А пока исправь ошибки в «Повторении» — за каждую исправленную ошибку вернётся сердечко.
+          Не беда! Новая жизнь появится через <b>{fmtMs(nextIn)}</b>. А пока исправь ошибки в «Повторении» — за каждую исправленную ошибку вернётся жизнь.
         </p>
         {onReview && (
           <Btn big wide onClick={onReview}>
@@ -235,15 +255,21 @@ export function Lesson({
         <Btn wide variant="ghost" onClick={() => onFinish({ xp, correct: correctTotal, total, answered: solved, passed: false })}>
           Выйти
         </Btn>
+        </div>
       </div>
     );
   }
 
   if (!ex) return null;
 
-  const correctText = q ? `${LETTERS[q.correct]}. ${q.options[q.correct]}` : ex.type === 'findSign' ? `знак ${ex.id.replace('find-', '')}` : '';
-  const explanation = q ? q.explanation : ex.type === 'findSign' ? ex.explanation : 'Все пары собраны!';
-  const hint = q?.hint ?? (q?.rule ? `Вспомни правило: ${q.rule}.` : 'Посмотри на форму и цвет знаков.');
+  const correctText = `${LETTERS[ex.q.correct]}. ${ex.q.options[ex.q.correct]}`;
+  const explanation = ex.q.explanation;
+  const hint = hintFor(ex.q);
+  const showHint = () => {
+    setHintShown(true);
+    const d = optionToDrop(ex.q, selected, crossed);
+    if (d !== null) setDropped([d]);
+  };
 
   return (
     <div className="screen-full lesson">
@@ -251,52 +277,54 @@ export function Lesson({
         <BackBtn onClick={onClose} />
         <div className="lesson-top-mid">
           <div className="lesson-top-title">
-            {title} · {Math.min(pos + 1, total)} из {total}
+            <span>{title}</span>
+            <span className="lesson-count">
+              {Math.min(pos + 1, total)} из {total}
+            </span>
           </div>
-          <ProgressBar value={solved / total} color={color} />
+          <ProgressBar value={Math.min(1, solved / total)} color={color} />
         </div>
         {usesHearts ? (
-          <div className={`hearts ${status === 'wrong' ? 'shake' : ''}`}>
-            ❤️ <b>{hearts}</b>
+          <div className={`hearts ${status === 'wrong' ? 'shake' : ''}`} aria-label={`Жизней: ${hearts}`}>
+            <UiIcon id="heart" size={26} /> <b>{hearts}</b>
           </div>
         ) : null}
       </div>
 
       <div className="lesson-body" key={pos}>
-        {pos >= total && <div className="retry-banner">🔁 Возвращаемся к вопросу с ошибкой</div>}
+        {pos >= total && <div className="retry-banner">
+            <UiIcon id="repeat" size={20} /> Возвращаемся к вопросу с ошибкой
+          </div>}
         {q && isTicketQuestion(q) && (
           <div className="ticket-cap">
             <span>
-              🎫 Билет {q.ticket}, вопрос {q.num}
+              <UiIcon id="ticket" size={20} /> Билет {q.ticket}, вопрос {q.num}
             </span>
             <button className={`star ${p.bookmarks.includes(q.id) ? 'on' : ''}`} onClick={() => toggleBookmark(q.id)} aria-label="В закладки">
               {p.bookmarks.includes(q.id) ? '★' : '☆'}
             </button>
           </div>
         )}
-        {ex.type === 'mc' && <MultipleChoice q={ex.q} selected={selected} status={sheet ? status : status === 'retry' ? 'retry' : 'idle'} crossed={crossed} onSelect={(i) => (play('tap', sound), setSelected(i))} />}
-        {ex.type === 'findSign' && (
-          <FindSign target={ex.target} choices={ex.choices} correctId={ex.id.replace('find-', '')} selected={selected} status={sheet ? status : 'idle'} onSelect={(i) => (play('tap', sound), setSelected(i))} />
-        )}
-        {ex.type === 'match' && <MatchPairs pairs={ex.pairs} onDone={() => (play('correct', sound), setMatchDone(true))} onMiss={() => play('wrong', sound)} />}
+        <MultipleChoice q={ex.q} selected={selected} status={sheet ? status : status === 'retry' ? 'retry' : 'idle'} crossed={[...crossed, ...dropped]} onSelect={(i) => (play('tap', sound), setSelected(i))} />
 
-        {canHint && !sheet && ex.type !== 'match' && (
+        {canHint && !sheet && (
           <div className="hint-row">
             {hintShown ? (
               <div className="hint-bubble">
-                <span>💡</span>
+                <UiIcon id="bulb" size={24} />
                 <div>
                   {hint}
+                  {dropped.length > 0 && <small className="hint-drop">Один неверный вариант зачёркнут.</small>}
                   {topic && (
                     <button className="link" onClick={() => setTheoryOpen(true)}>
-                      Открыть теорию →
+                      Открыть теорию
                     </button>
                   )}
                 </div>
               </div>
             ) : (
-              <button className="hint-btn" onClick={() => setHintShown(true)}>
-                💡 Подсказка <small>(меньше XP)</small>
+              <button className="hint-btn" onClick={showHint}>
+                <UiIcon id="bulb" size={20} /> Подсказка <small>(меньше XP)</small>
               </button>
             )}
           </div>
@@ -317,20 +345,20 @@ export function Lesson({
             {status === 'retry' ? (
               <>
                 <div className="fb-head">
-                  <Inspector mood="think" size={70} />
+                  <span className="fb-badge think"><UiIcon id="bulb" size={30} /></span>
                   <div>
                     <h3>Почти! Подумай ещё раз</h3>
                     <p className="muted">Этот вариант неверный. Вот подсказка:</p>
                   </div>
                 </div>
                 <div className="fb-expl hint">
-                  <span className="fb-ico">💡</span>
+                  <UiIcon id="bulb" size={24} />
                   <div>{hint}</div>
                 </div>
                 <div className="fb-btns">
                   {topic && (
                     <Btn variant="white" onClick={() => setTheoryOpen(true)}>
-                      📖 Теория
+                      <UiIcon id="book" size={20} /> Теория
                     </Btn>
                   )}
                   <Btn big variant="orange" onClick={tryAgain}>
@@ -341,7 +369,7 @@ export function Lesson({
             ) : (
               <>
                 <div className="fb-head">
-                  <Inspector mood={status === 'right' ? 'cheer' : 'sad'} size={70} />
+                  <span className={`fb-badge ${status}`}>{status === 'right' ? <UiIcon id="check" size={30} /> : <UiIcon id="cross" size={30} />}</span>
                   <div>
                     <h3>{status === 'right' ? praise : 'Неправильно'}</h3>
                     {status === 'right' ? (
@@ -362,17 +390,17 @@ export function Lesson({
                   <div>
                     <b>Объяснение</b>
                     <div>{explanation}</div>
-                    {q?.rule && <div className="fb-rule">📖 ПДД: {q.rule}</div>}
+                    {q?.rule && <div className="fb-rule">ПДД, {q.rule}</div>}
                   </div>
                 </div>
                 <div className="fb-btns">
                   {status === 'wrong' && topic && (
                     <Btn variant="white" onClick={() => setTheoryOpen(true)}>
-                      📖 Теория
+                      <UiIcon id="book" size={20} /> Теория
                     </Btn>
                   )}
-                  <Btn big variant="yellow" onClick={next}>
-                    Далее
+                  <Btn big variant={status === 'right' ? 'green' : 'red'} onClick={next}>
+                    {status === 'right' ? 'Дальше' : 'Понятно'}
                   </Btn>
                 </div>
               </>
@@ -380,6 +408,16 @@ export function Lesson({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/** Шапка итогового экрана: крупный значок результата на цветном фоне. */
+function FinishHero({ mood, children }: { mood: 'cheer' | 'sad'; children?: ReactNode }) {
+  return (
+    <div className="finish-hero">
+      <span className="finish-badge">{mood === 'cheer' ? <UiIcon id="check" size={52} /> : <UiIcon id="cross" size={52} />}</span>
+      {children}
     </div>
   );
 }

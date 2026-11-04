@@ -1,29 +1,30 @@
-import { useState } from 'react';
-import type { Exercise, TopicId } from './types';
-import { buildControl, buildPractice, buildReview, findQuestion, officialByTopic, pickFresh, shuffleOptions, type StepKind, STEPS, topicById } from './data/course';
+import { useEffect, useState } from 'react';
+import { bindBack } from './telegram';
+import type { Exercise, Question, TopicId } from './types';
+import type { TheoryCard } from './types';
+import { buildControl, buildReview, buildUnitDrill, findQuestion, pickFresh, topicById, unitKey } from './data/course';
+import { topicUnits, type Unit } from './data/units';
 import { useTickets } from './data/tickets';
 import { heartsNow, useProgress } from './store';
 import { Home, TopicSheet } from './screens/Home';
 import { Lesson, type LessonMode } from './screens/Lesson';
 import { Theory } from './screens/Theory';
+import { Cards } from './screens/Cards';
 import { ExamScreen } from './screens/Exam';
-import { CityScreen } from './screens/City';
 import { ReviewScreen } from './screens/Review';
 import { DailyScreen, ProfileScreen } from './screens/Profile';
-import { SignsGuide } from './screens/Other';
 import { Logo, Welcome } from './screens/Welcome';
-import { Inspector } from './components/Art';
 import { Btn, fmtMs, Modal, NavIcon } from './components/UI';
 
-type Tab = 'learn' | 'city' | 'exam' | 'review' | 'profile';
+type Tab = 'learn' | 'exam' | 'review' | 'profile';
 
 type Overlay =
-  | { kind: 'theory'; topic: TopicId; readOnly?: boolean }
-  | { kind: 'lesson'; mode: LessonMode; title: string; color: string; topic?: TopicId; step?: number; ticket?: number; exercises: Exercise[]; key: number; again?: () => void };
+  | { kind: 'theory'; topic: TopicId; readOnly?: boolean; unit?: Unit; cards?: TheoryCard[]; title?: string }
+  | { kind: 'cards'; title: string; deck: Question[] }
+  | { kind: 'lesson'; mode: LessonMode; title: string; color: string; topic?: TopicId; control?: boolean; unit?: Unit; ticket?: number; exercises: Exercise[]; key: number; again?: () => void };
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'learn', label: 'Обучение' },
-  { id: 'city', label: 'Город' },
   { id: 'exam', label: 'Экзамен' },
   { id: 'review', label: 'Повторение' },
   { id: 'profile', label: 'Профиль' },
@@ -33,16 +34,27 @@ export default function App() {
   const store = useProgress();
   const { p, addXp, completeStep } = store;
   const [tab, setTab] = useState<Tab>('learn');
-  const [page, setPage] = useState<null | 'daily' | 'signs'>(null);
+  const [page, setPage] = useState<null | 'daily'>(null);
   const [sheet, setSheet] = useState<TopicId | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   const [noHearts, setNoHearts] = useState(false);
+  // Кнопка «Назад» Telegram закрывает верхний слой: окно темы, урок или страницу.
+  useEffect(
+    () =>
+      bindBack(!!(sheet || overlay || page), () => {
+        if (sheet) setSheet(null);
+        else if (overlay) setOverlay(null);
+        else setPage(null);
+      }),
+    [sheet, overlay, page],
+  );
   // Билеты грузим сразу: нужны и экзамену, и «Повторению» (ошибки из билетов).
   const { db } = useTickets();
 
   if (!p.onboarded) return <Welcome />;
 
   const openTab = (t: Tab) => {
+    setSheet(null);
     setTab(t);
     setPage(null);
     window.scrollTo(0, 0);
@@ -57,21 +69,22 @@ export default function App() {
     setOverlay({ kind: 'lesson', key: Date.now(), ...o });
   };
 
-  const startStep = (topic: TopicId, kind: StepKind) => {
+  const startControl = (topic: TopicId) => {
     const t = topicById(topic);
-    const step = STEPS.findIndex((s) => s.kind === kind);
+    if (!db) return;
     setSheet(null);
-    if (kind === 'theory') return setOverlay({ kind: 'theory', topic });
-    const build = () => (kind === 'control' ? buildControl(topic) : buildPractice(topic, kind === 'practice' ? 1 : 2));
-    lesson({
-      mode: kind === 'control' ? 'control' : 'practice',
-      title: { practice: 'Практика', practice2: 'Закрепление', control: 'Контрольная', theory: 'Теория' }[kind],
-      color: t.color,
-      topic,
-      step,
-      exercises: build(),
-      again: () => startStep(topic, kind),
-    });
+    lesson({ mode: 'control', title: 'Контрольная', color: t.color, topic, control: true, exercises: buildControl(topic), again: () => startControl(topic) });
+  };
+
+  // Блок темы: сначала его теория, потом все его билеты с подсказками.
+  const unitDrill = (topic: TopicId, u: Unit) =>
+    lesson({ mode: 'drill', title: u.title, color: topicById(topic).color, topic, unit: u, exercises: buildUnitDrill(topic, u, p.stats), again: () => unitDrill(topic, u) });
+
+  const startUnit = (topic: TopicId, u: Unit) => {
+    if (!db) return;
+    setSheet(null);
+    if (!p.done.includes(unitKey(topic, u))) return setOverlay({ kind: 'theory', topic, unit: u });
+    unitDrill(topic, u);
   };
 
   const seen = (id: string) => p.stats[id]?.seen ?? 0;
@@ -81,27 +94,39 @@ export default function App() {
   function reviewOrQuiz(mode: LessonMode, title: string, ids: string[], extra: Partial<Extract<Overlay, { kind: 'lesson' }>> = {}) {
     const ex: Exercise[] = ids.flatMap((id) => {
       const q = findQuestion(id);
-      return q ? [{ type: 'mc' as const, q: shuffleOptions(q) }] : [];
+      return q ? [{ type: 'mc' as const, q }] : [];
     });
-    if (ex.length) lesson({ mode, title, color: '#1f7cf0', exercises: ex, ...extra });
+    if (ex.length) lesson({ mode, title, color: '#1cb0f6', exercises: ex, ...extra });
   }
 
   if (overlay?.kind === 'theory') {
-    const { topic, readOnly } = overlay;
+    const { topic, readOnly, unit } = overlay;
+    const cards = overlay.cards ?? (unit ? unit.cards : topicUnits(topic).flatMap((u) => u.cards));
     return (
       <Theory
         topic={topic}
         readOnly={readOnly}
-        onClose={() => setOverlay(null)}
+        cards={cards}
+        title={overlay.title ?? unit?.title}
+        doneText="Теперь билеты этого блока — с подсказками."
+        onClose={() => {
+          setOverlay(null);
+          if (unit) setSheet(topic);
+        }}
         onDone={() => {
           addXp(10);
-          completeStep(topic, 0);
-          setOverlay(null);
-          setSheet(topic);
+          if (!unit) {
+            setOverlay(null);
+            return setSheet(topic);
+          }
+          completeStep(topic, `u-${unit.id}`);
+          unitDrill(topic, unit);
         }}
       />
     );
   }
+
+  if (overlay?.kind === 'cards') return <Cards title={overlay.title} deck={overlay.deck} onClose={() => setOverlay(null)} />;
 
   if (overlay?.kind === 'lesson') {
     const o = overlay;
@@ -112,10 +137,11 @@ export default function App() {
         title={o.title}
         color={o.color}
         topic={o.topic}
+        theoryCards={o.unit?.cards}
         exercises={o.exercises}
         onClose={() => {
           setOverlay(null);
-          if (o.topic && o.step !== undefined) setSheet(o.topic);
+          if (o.topic && (o.control || o.unit)) setSheet(o.topic);
         }}
         onRestart={o.again}
         onReview={() => {
@@ -125,9 +151,10 @@ export default function App() {
         onFinish={(r) => {
           if (r.xp > 0) addXp(r.xp);
           if (o.ticket && r.total === r.answered) store.recordTicket(o.ticket, r.total - r.correct);
-          if (o.topic && o.step !== undefined && r.passed) completeStep(o.topic, o.step, o.mode === 'control' ? r.correct : undefined);
+          if (o.topic && o.control && r.passed) completeStep(o.topic, 'control', r.correct);
+          if (o.control && r.total > 0 && r.correct === r.total) store.addFlag('perfect');
           setOverlay(null);
-          if (o.topic && o.step !== undefined) setSheet(o.topic);
+          if (o.topic && (o.control || o.unit)) setSheet(o.topic);
         }}
       />
     );
@@ -149,41 +176,38 @@ export default function App() {
       </nav>
       <main className="main">
         {page === 'daily' && <DailyScreen onBack={() => setPage(null)} />}
-        {page === 'signs' && <SignsGuide onBack={() => setPage(null)} />}
-        {!page && tab === 'learn' && <Home onTopic={setSheet} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
-        {!page && tab === 'city' && <CityScreen />}
+                {!page && tab === 'learn' && <Home onTopic={setSheet} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
         {!page && tab === 'exam' && (
           <ExamScreen
             onExit={() => openTab('exam')}
             onTicket={(n) => db && quiz(`Билет ${n}`, db.byTicket[n - 1], { ticket: n })}
-            onOfficialTopic={(name) => db && quiz(name, pickFresh(db.questions.filter((q) => q.official.includes(name)), 20, seen))}
+            onOfficialTopic={(name) => db && quiz(name, db.questions.filter((q) => q.official.includes(name)))}
+            onQuestionNo={(n) => db && quiz(`Все вопросы №${n}`, db.questions.filter((q) => q.num === n).sort((x, y) => x.ticket - y.ticket))}
             onMarathon={() => db && quiz('Марафон', pickFresh(db.questions, 50, seen))}
             onBookmarks={() => reviewOrQuiz('quiz', 'Закладки', p.bookmarks)}
             onMistakes={() => openTab('review')}
+            onProfile={() => openTab('profile')}
           />
         )}
         {!page && tab === 'review' && (
           <ReviewScreen
-            onMistakes={(ids) => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9a3c' })}
-            onTopicReview={(t) => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t) })}
+            onMistakes={(ids) => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' })}
+            onTopicReview={(t) => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) })}
             onTheory={(t) => setOverlay({ kind: 'theory', topic: t, readOnly: true })}
-            onSigns={() => setPage('signs')}
+            onCards={(title, deck) => setOverlay({ kind: 'cards', title, deck })}
+            onReadCard={(topic, cards, title) => setOverlay({ kind: 'theory', topic, readOnly: true, cards, title })}
+            onTrain={(title, ids) => reviewOrQuiz('review', title, ids, { color: '#ff9600' })}
           />
         )}
-        {!page && tab === 'profile' && <ProfileScreen onDaily={() => setPage('daily')} onSigns={() => setPage('signs')} />}
+        {!page && tab === 'profile' && <ProfileScreen onDaily={() => setPage('daily')} />}
       </main>
 
       {sheet && (
         <TopicSheet
           topic={sheet}
           onClose={() => setSheet(null)}
-          onStep={(k) => startStep(sheet, k)}
-          officialCount={officialByTopic(sheet).length}
-          onOfficial={() => {
-            const t = topicById(sheet);
-            setSheet(null);
-            quiz(`Билеты: ${t.title}`, pickFresh(officialByTopic(sheet), 15, seen), { color: t.color, topic: sheet });
-          }}
+          onControl={() => startControl(sheet)}
+          onUnit={(u) => startUnit(sheet, u)}
           onReread={() => {
             setOverlay({ kind: 'theory', topic: sheet, readOnly: true });
             setSheet(null);
@@ -193,10 +217,9 @@ export default function App() {
 
       {noHearts && (
         <Modal onClose={() => setNoHearts(false)}>
-          <Inspector mood="sad" size={120} />
-          <h2>Сердечки закончились</h2>
+          <h2>Жизни закончились</h2>
           <p>
-            Новое сердечко появится через <b>{fmtMs(heartsNow(p).nextIn)}</b>. Исправь ошибки в «Повторении» — каждая исправленная ошибка возвращает ❤️. Теорию можно читать всегда.
+            Новая жизнь появится через <b>{fmtMs(heartsNow(p).nextIn)}</b>. Исправь ошибки в «Повторении» — каждая исправленная ошибка возвращает жизнь. Теорию можно читать всегда.
           </p>
           {p.mistakes.length > 0 && (
             <Btn

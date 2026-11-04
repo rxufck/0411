@@ -1,14 +1,16 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import { Gallery } from './screens/Gallery';
 import { ProgressProvider } from './store';
+import { initTelegram } from './telegram';
 import './styles.css';
+
+initTelegram();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ProgressProvider>
-      {location.hash === '#gallery' ? <Gallery /> : <App />}
+      <App />
     </ProgressProvider>
   </StrictMode>,
 );

@@ -1,3 +1,5 @@
+import { haptic } from './telegram';
+
 // Короткие звуки через Web Audio — без файлов.
 let ctx: AudioContext | null = null;
 
@@ -38,6 +40,7 @@ export const sounds = {
 };
 
 export function play(name: keyof typeof sounds, enabled: boolean) {
+  haptic(name === 'correct' || name === 'wrong' ? name : 'tap');
   if (!enabled) return;
   try {
     sounds[name]();

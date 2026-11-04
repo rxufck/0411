@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { buildExam, buildExtra, buildOfficialExam, buildOfficialExtra, EXAM_BLOCKS, type ExamQuestion, findQuestion } from '../data/course';
+import { buildOfficialExam, buildOfficialExtra, EXAM_BLOCKS, type ExamQuestion, findQuestion } from '../data/course';
 import { useTickets } from '../data/tickets';
 import { useProgress } from '../store';
 import { play } from '../sound';
 import { Illustration } from '../components/Illustration';
-import { Btn, CloseBtn, Confetti, Modal, Sheet } from '../components/UI';
-import { CityBackdrop, Inspector as Mascot } from '../components/Art';
+import { BadgeIcon, Btn, CloseBtn, Confetti, Modal, ProfileHeader, Sheet } from '../components/UI';
+import { UiIcon } from '../components/Icons';
 
 const BASE_MIN = 20;
 
@@ -16,17 +16,21 @@ export function ExamScreen({
   onTicket,
   onOfficialTopic,
   onMarathon,
+  onQuestionNo,
   onBookmarks,
   onMistakes,
+  onProfile,
 }: {
   onExit: () => void;
   onTicket: (n: number) => void;
   onOfficialTopic: (name: string) => void;
   onMarathon: () => void;
+  onQuestionNo: (n: number) => void;
   onBookmarks: () => void;
   onMistakes: () => void;
+  onProfile: () => void;
 }) {
-  const [chooser, setChooser] = useState<null | 'tickets' | 'topics'>(null);
+  const [chooser, setChooser] = useState<null | 'tickets' | 'topics' | 'num'>(null);
   const { db, error } = useTickets();
   const [ticketNo, setTicketNo] = useState<number | null>(null);
   const { p, addExam, addMistakes, addXp } = useProgress();
@@ -38,13 +42,16 @@ export function ExamScreen({
   const [now, setNow] = useState(Date.now());
   const [extraBlocks, setExtraBlocks] = useState<number[]>([]);
   const [verdict, setVerdict] = useState<{ passed: boolean; reason: string } | null>(null);
+  const [leaving, setLeaving] = useState(false);
+  const [picked, setPicked] = useState<number | null>(null);
+  useEffect(() => setPicked(null), [cur]);
   const startRef = useRef(0);
 
   const start = () => {
-    // Настоящий билет ГИБДД; если база не загрузилась — билет из вопросов курса.
-    const official = db ? buildOfficialExam(db) : null;
-    const qs = official ? official.items : buildExam();
-    setTicketNo(official?.ticket ?? null);
+    if (!db) return;
+    const official = buildOfficialExam(db);
+    const qs = official.items;
+    setTicketNo(official.ticket);
     setItems(qs);
     setAnswers(qs.map(() => null));
     setCur(0);
@@ -96,7 +103,7 @@ export function ExamScreen({
     if (extraBlocks.length === 0) {
       const blocks = errBase.flatMap((e, b) => (e ? [b] : []));
       const used = new Set(items.map((it) => it.q.id));
-      const extra = blocks.flatMap((b) => (db && ticketNo ? buildOfficialExtra(db, b, used) : buildExtra(b, used)));
+      const extra = blocks.flatMap((b) => (db ? buildOfficialExtra(db, b, used) : []));
       setExtraBlocks(blocks);
       setItems([...items, ...extra]);
       setAnswers([...ans, ...extra.map(() => null)]);
@@ -110,16 +117,13 @@ export function ExamScreen({
 
   const answer = (i: number) => {
     if (answers[cur] !== null) return;
-    play('tap', p.settings.sound);
     const ans = [...answers];
     ans[cur] = i;
     setAnswers(ans);
-    setTimeout(() => {
-      const nextIdx = ans.findIndex((a, k) => a === null && k > cur);
-      const any = nextIdx >= 0 ? nextIdx : ans.findIndex((a) => a === null);
-      if (any >= 0) setCur(any);
-      else evaluate(ans);
-    }, 350);
+    const nextIdx = ans.findIndex((a, k) => a === null && k > cur);
+    const any = nextIdx >= 0 ? nextIdx : ans.findIndex((a) => a === null);
+    if (any >= 0) setCur(any);
+    else evaluate(ans);
   };
 
   const skip = () => {
@@ -128,7 +132,7 @@ export function ExamScreen({
     if (any >= 0) setCur(any);
   };
 
-  const blockName = (b: number) => (ticketNo ? `вопросы ${b * 5 + 1}–${b * 5 + 5}` : EXAM_BLOCKS[b].title.toLowerCase());
+  const blockName = (b: number) => EXAM_BLOCKS[b].title.toLowerCase();
 
   const lastExams = useMemo(() => p.exams.slice(0, 5), [p.exams]);
 
@@ -136,71 +140,83 @@ export function ExamScreen({
     const passedCount = p.exams.filter((e) => e.passed).length;
     return (
       <div className="page exam-hub">
-        <h1 className="page-title">Экзамен</h1>
-        <div className="exam-hero">
-          <svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMax slice">
-            <CityBackdrop />
-          </svg>
-          <div className="exam-hero-man">
-            <Mascot mood="happy" size={150} />
-          </div>
-        </div>
-        <h2 className="hub-title">Билеты ГИБДД</h2>
-        <p className="muted">Настоящие экзаменационные билеты категорий A, B, M — те же вопросы, что на экзамене в ГИБДД.</p>
-        <Btn big wide variant="blue" onClick={start} disabled={!db && !error}>
-          {db || error ? 'Начать экзамен' : 'Загружаем билеты…'}
-        </Btn>
-        <div className="card exam-facts">
-          <span className="fact-check">✓</span>
-          <b>{db ? 'Случайный билет из 40 · 20 минут' : '20 вопросов · 20 минут'}</b>
-          <small>Можно ошибиться не больше 2 раз, +5 вопросов за ошибку</small>
-        </div>
-        {error && <p className="muted small">Не удалось загрузить билеты — экзамен пройдёт на вопросах курса.</p>}
-        {db && (
-          <>
-            <button className="card hub-item" onClick={() => setChooser('tickets')}>
-              <span className="hub-ico blue">🎫</span>
-              <span className="hub-text">
-                <b>Билеты 1–40</b>
-                <small>
-                  Решено {Object.keys(p.tickets).length} из 40 · без ошибок {Object.values(p.tickets).filter((e) => e === 0).length}
-                </small>
-              </span>
-              <span className="chev">›</span>
-            </button>
-            <button className="card hub-item" onClick={() => setChooser('topics')}>
-              <span className="hub-ico green">🧭</span>
-              <span className="hub-text">
-                <b>Вопросы по темам</b>
-                <small>{db.topics.length} тем, как в билетах ГИБДД</small>
-              </span>
-              <span className="chev">›</span>
-            </button>
-            <button className="card hub-item" onClick={onMarathon}>
-              <span className="hub-ico yellow">🏃</span>
-              <span className="hub-text">
-                <b>Марафон</b>
-                <small>Все {db.questions.length} вопросов по 50 за подход, сначала новые</small>
-              </span>
-              <span className="chev">›</span>
-            </button>
-            <div className="hub-row">
-              <button className="card hub-item" onClick={onMistakes}>
-                <span className="hub-ico red">🧠</span>
-                <span className="hub-text">
-                  <b>Ошибки</b>
-                  <small>{p.mistakes.length} на повторение</small>
-                </span>
-              </button>
-              <button className="card hub-item" onClick={onBookmarks} disabled={!p.bookmarks.length}>
-                <span className="hub-ico blue">★</span>
-                <span className="hub-text">
-                  <b>Закладки</b>
-                  <small>{p.bookmarks.length ? `${p.bookmarks.length} вопр.` : 'Отмечай ☆ в вопросах'}</small>
-                </span>
-              </button>
+        <ProfileHeader onProfile={onProfile} />
+        <div className="goal-card">
+          <div className="goal-top">
+            <span className="goal-ico"><UiIcon id="trophy" size={26} /></span>
+            <div>
+              <b>Экзамен ГИБДД</b>
+              <small>Настоящий билет из 40: 20 вопросов, 20 минут, не больше 2 ошибок</small>
             </div>
-          </>
+          </div>
+          <Btn big wide variant="green" onClick={start} disabled={!db}>
+            {db ? 'Начать экзамен' : error ? 'Билеты не загрузились' : 'Загружаем билеты…'}
+          </Btn>
+          {error && <p className="muted small">Не удалось загрузить билеты. Обнови страницу.</p>}
+        </div>
+        {db && (
+          <div className="course">
+            <section className="stage">
+              <header className="stage-head" style={{ borderColor: '#388201' }}>
+                <h2>Тренировка по билетам</h2>
+                <small>Те же вопросы, что на экзамене, без таймера</small>
+              </header>
+            <button className="topic-row" onClick={() => setChooser('tickets')}>
+              <span className="topic-badge" style={{ background: '#137aaa', boxShadow: '0 3px 0 #0f6288', width: 48, height: 48 }}><BadgeIcon id="ticket" /></span>
+              <span className="topic-row-text">
+                <b>Билеты 1–40</b>
+                <small>{`Решено ${Object.keys(p.tickets).length} из 40, без ошибок ${Object.values(p.tickets).filter((e) => e === 0).length}`}</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            <button className="topic-row" onClick={() => setChooser('num')}>
+              <span className="topic-badge" style={{ background: '#21844e', boxShadow: '0 3px 0 #1a6a3e', width: 48, height: 48 }}><BadgeIcon id="hash" /></span>
+              <span className="topic-row-text">
+                <b>Вопросы по номеру</b>
+                <small>Все первые, все вторые и так далее: по 40 вопросов</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            <button className="topic-row" onClick={() => setChooser('topics')}>
+              <span className="topic-badge" style={{ background: '#7052d6', boxShadow: '0 3px 0 #5a42ac', width: 48, height: 48 }}><BadgeIcon id="list" /></span>
+              <span className="topic-row-text">
+                <b>Вопросы по темам</b>
+                <small>{`${db.topics.length} тем, как в билетах ГИБДД`}</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            <button className="topic-row" onClick={onMarathon}>
+              <span className="topic-badge" style={{ background: '#aa6400', boxShadow: '0 3px 0 #885000', width: 48, height: 48 }}><BadgeIcon id="bolt" /></span>
+              <span className="topic-row-text">
+                <b>Марафон</b>
+                <small>{`Все ${db.questions.length} вопросов по 50 за подход, сначала новые`}</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            </section>
+            <section className="stage">
+              <header className="stage-head" style={{ borderColor: '#d03d3d' }}>
+                <h2>Мои вопросы</h2>
+                <small>Что стоит повторить</small>
+              </header>
+            <button className="topic-row" onClick={onMistakes}>
+              <span className="topic-badge" style={{ background: '#d03d3d', boxShadow: '0 3px 0 #a63131', width: 48, height: 48 }}><BadgeIcon id="alert" /></span>
+              <span className="topic-row-text">
+                <b>Ошибки</b>
+                <small>{`${p.mistakes.length} на повторение`}</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            <button className="topic-row" onClick={onBookmarks} disabled={!p.bookmarks.length}>
+              <span className="topic-badge" style={{ background: '#137aaa', boxShadow: '0 3px 0 #0f6288', width: 48, height: 48 }}><BadgeIcon id="star" /></span>
+              <span className="topic-row-text">
+                <b>Закладки</b>
+                <small>{p.bookmarks.length ? `${p.bookmarks.length} вопр.` : 'Отмечай ☆ в вопросах'}</small>
+              </span>
+              <span className="chev">›</span>
+            </button>
+            </section>
+          </div>
         )}
         <details className="card rules-details">
           <summary>Как устроен экзамен</summary>
@@ -214,11 +230,11 @@ export function ExamScreen({
         {lastExams.length > 0 && (
           <div className="card history">
             <h3>
-              Последние попытки · сдано {passedCount} из {p.exams.length}
+              Последние попытки, сдано {passedCount} из {p.exams.length}
             </h3>
             {lastExams.map((e, i) => (
               <div key={i} className="history-row">
-                <span>{e.passed ? '✅ Сдал' : '❌ Не сдал'}</span>
+                <span>{e.passed ? <><UiIcon id="check" size={16} /> Сдал</> : <><UiIcon id="cross" size={16} /> Не сдал</>}</span>
                 <span className="muted">
                   ошибок: {e.errors} из {e.total}
                 </span>
@@ -250,6 +266,25 @@ export function ExamScreen({
                   </button>
                 );
               })}
+            </div>
+          </Sheet>
+        )}
+        {chooser === 'num' && db && (
+          <Sheet onClose={() => setChooser(null)} title="Вопросы по номеру">
+            <p className="muted small">Выбери номер вопроса в билете: получишь все 40 вопросов с этим номером.</p>
+            <div className="ticket-grid">
+              {Array.from({ length: 20 }, (_, i) => (
+                <button
+                  key={i}
+                  className="ticket-cell"
+                  onClick={() => {
+                    setChooser(null);
+                    onQuestionNo(i + 1);
+                  }}
+                >
+                  {i + 1}
+                </button>
+              ))}
             </div>
           </Sheet>
         )}
@@ -288,11 +323,11 @@ export function ExamScreen({
       <div className="page exam-result">
         {verdict.passed && <Confetti />}
         <div className={`verdict ${verdict.passed ? 'ok' : 'bad'}`}>
-          <Mascot mood={verdict.passed ? 'cheer' : 'sad'} size={120} />
+          <span className="finish-badge">{verdict.passed ? <UiIcon id="check" size={44} /> : <UiIcon id="cross" size={44} />}</span>
           <h1>{verdict.passed ? 'Экзамен сдан!' : 'Экзамен не сдан'}</h1>
           <p>{verdict.reason}</p>
           <p className="muted">
-            Ошибок: {wrong.length} · Вопросов: {items.length} · Время: {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
+            Ошибок: {wrong.length}, вопросов: {items.length}, время: {Math.floor(secs / 60)}:{String(secs % 60).padStart(2, '0')}
           </p>
         </div>
         {wrong.length > 0 && (
@@ -303,13 +338,13 @@ export function ExamScreen({
                 <div className="review-q">{it.q.text}</div>
                 {it.q.image && <Illustration img={it.q.image} />}
                 {a !== null && a !== undefined ? (
-                  <div className="review-wrong">✖ Ваш ответ: {it.q.options[a]}</div>
+                  <div className="review-wrong"><UiIcon id="cross" size={16} /> Ваш ответ: {it.q.options[a]}</div>
                 ) : (
-                  <div className="review-wrong">✖ Нет ответа</div>
+                  <div className="review-wrong"><UiIcon id="cross" size={16} /> Нет ответа</div>
                 )}
-                <div className="review-right">✔ Правильно: {it.q.options[it.q.correct]}</div>
+                <div className="review-right"><UiIcon id="check" size={16} /> Правильно: {it.q.options[it.q.correct]}</div>
                 <div className="feedback-expl">{it.q.explanation}</div>
-                {it.q.rule && <div className="feedback-rule">📖 {it.q.rule}</div>}
+                {it.q.rule && <div className="feedback-rule"><UiIcon id="book" size={16} /> {it.q.rule}</div>}
               </div>
             ))}
             <p className="muted center">Эти вопросы добавлены в «Работу над ошибками».</p>
@@ -329,13 +364,13 @@ export function ExamScreen({
   return (
     <div className="screen-full exam-run">
       <div className="exam-top">
-        <CloseBtn onClick={() => (confirm('Прервать экзамен? Результат не сохранится.') ? (setPhase('intro'), onExit()) : undefined)} />
+        <CloseBtn onClick={() => setLeaving(true)} />
         <div className="exam-ticket">
-          {ticketNo ? `Билет ${ticketNo} · ` : ''}Вопрос {cur + 1} из {items.length}
+          {ticketNo ? `Билет ${ticketNo}, вопрос` : 'Вопрос'} {cur + 1} из {items.length}
           {it?.extra && <span className="extra-tag">доп.</span>}
         </div>
         <div className={`timer ${left < 120 ? 'timer-low' : ''}`}>
-          ⏱ {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
+          <UiIcon id="clock" size={18} /> {Math.floor(left / 60)}:{String(left % 60).padStart(2, '0')}
         </div>
       </div>
       <div className="exam-grid">
@@ -354,11 +389,11 @@ export function ExamScreen({
           <div className="exam-block muted">
             Блок {it.block + 1}: {blockName(it.block)}
           </div>
-          {it.q.image ? <Illustration img={it.q.image} /> : <div className="exam-noimg">Вопрос без иллюстрации</div>}
+          {it.q.image && <Illustration img={it.q.image} />}
           <h2 className="ex-title">{it.q.text}</h2>
           <div className="options">
             {it.q.options.map((o, i) => (
-              <button key={i} className={`option ${answers[cur] === i ? 'selected' : ''}`} onClick={() => answer(i)} disabled={answers[cur] !== null} data-ok={import.meta.env.DEV && i === it.q.correct ? '' : undefined}>
+              <button key={i} className={`option ${picked === i ? 'selected' : ''}`} onClick={() => (play('tap', p.settings.sound), setPicked(i))} disabled={answers[cur] !== null} data-ok={import.meta.env.DEV && i === it.q.correct ? '' : undefined}>
                 <span className="opt-key">{i + 1}</span>
                 <span className="opt-text">{o}</span>
               </button>
@@ -368,12 +403,26 @@ export function ExamScreen({
             <Btn variant="white" onClick={skip}>
               Пропустить
             </Btn>
+            <Btn big variant="green" disabled={picked === null} onClick={() => picked !== null && answer(picked)}>
+              Ответить
+            </Btn>
           </div>
         </div>
       )}
+      {leaving && (
+        <Modal onClose={() => setLeaving(false)}>
+          <h2>Прервать экзамен?</h2>
+          <p>Результат не сохранится.</p>
+          <Btn big wide variant="red" onClick={() => (setLeaving(false), setPhase('intro'), onExit())}>
+            Прервать
+          </Btn>
+          <Btn wide variant="ghost" onClick={() => setLeaving(false)}>
+            Продолжить экзамен
+          </Btn>
+        </Modal>
+      )}
       {phase === 'extra-info' && (
         <Modal>
-          <Mascot mood="think" size={90} />
           <h2>Дополнительные вопросы</h2>
           <p>
             Есть ошибки в блоке{extraBlocks.length > 1 ? 'ах' : ''}: {extraBlocks.map((b) => `${b + 1} (${blockName(b)})`).join(', ')}.

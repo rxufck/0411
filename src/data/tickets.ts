@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { Question, TopicId } from '../types';
+import { ticketTopic } from './units';
 
 // Официальные экзаменационные билеты ГИБДД (категории A, B, M): 40 билетов по 20 вопросов.
 // Файл public/tickets/ab.json готовит scripts/import-tickets.py; грузим его только когда нужен.
@@ -31,7 +32,8 @@ export interface TicketDB {
   byId: Map<string, TicketQuestion>;
 }
 
-// Официальные темы → темы курса. Вопросы по знакам раскладываем по номеру знака.
+// Тема билета — тема блока, где он разобран (units). Эти таблицы нужны только для билетов,
+// которые ещё не попали ни в один блок.
 const TOPIC_MAP: Record<string, TopicId> = {
   'Общие положения': 'basics',
   'Общие обязанности водителей': 'basics',
@@ -90,7 +92,7 @@ export function loadTickets(): Promise<TicketDB> {
         const official = r.topics.map((i) => raw.topics[i]);
         return {
           id: `t-${r.id}`,
-          topic: courseTopic(official, `${r.tip} ${r.rule ?? ''}`),
+          topic: ticketTopic(`t-${r.id}`) ?? courseTopic(official, `${r.tip} ${r.rule ?? ''}`),
           text: r.q,
           options: r.a,
           correct: r.c,
