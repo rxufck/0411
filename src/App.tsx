@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { bindBack } from './telegram';
+import { syncStatus, usePremium } from './premium';
+import { Paywall } from './components/Paywall';
 import type { Exercise, Question, TopicId } from './types';
 import type { TheoryCard } from './types';
 import { buildControl, buildReview, buildUnitDrill, findQuestion, pickFresh, topicById, unitKey } from './data/course';
@@ -50,6 +52,11 @@ export default function App() {
   );
   // Билеты грузим сразу: нужны и экзамену, и «Повторению» (ошибки из билетов).
   const { db } = useTickets();
+  // Подписка: экзамен и разбор ошибок только для платных. Заодно сообщаем боту дату экзамена для напоминаний.
+  const prem = usePremium();
+  useEffect(() => {
+    void syncStatus({ examDate: p.examDate, lastActive: p.lastActive, streak: p.streak });
+  }, [p.examDate, p.lastActive, p.streak]);
 
   if (!p.onboarded) return <Welcome />;
 
@@ -177,7 +184,8 @@ export default function App() {
       <main className="main">
         {page === 'daily' && <DailyScreen onBack={() => setPage(null)} />}
                 {!page && tab === 'learn' && <Home onTopic={setSheet} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
-        {!page && tab === 'exam' && (
+        {!page && tab === 'exam' && !prem.active && <Paywall title="Экзамен" />}
+        {!page && tab === 'exam' && prem.active && (
           <ExamScreen
             onExit={() => openTab('exam')}
             onTicket={(n) => db && quiz(`Билет ${n}`, db.byTicket[n - 1], { ticket: n })}
@@ -191,6 +199,7 @@ export default function App() {
         )}
         {!page && tab === 'review' && (
           <ReviewScreen
+            locked={!prem.active}
             onMistakes={(ids) => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' })}
             onTopicReview={(t) => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) })}
             onTheory={(t) => setOverlay({ kind: 'theory', topic: t, readOnly: true })}
@@ -219,9 +228,10 @@ export default function App() {
         <Modal onClose={() => setNoHearts(false)}>
           <h2>Жизни закончились</h2>
           <p>
-            Новая жизнь появится через <b>{fmtMs(heartsNow(p).nextIn)}</b>. Исправь ошибки в «Повторении» — каждая исправленная ошибка возвращает жизнь. Теорию можно читать всегда.
+            Новая жизнь появится через <b>{fmtMs(heartsNow(p).nextIn)}</b>.
+            {prem.active ? ' Исправь ошибки в «Повторении»: каждая исправленная ошибка возвращает жизнь.' : ''} Теорию можно читать всегда.
           </p>
-          {p.mistakes.length > 0 && (
+          {prem.active && p.mistakes.length > 0 && (
             <Btn
               big
               wide

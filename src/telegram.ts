@@ -15,6 +15,7 @@ interface TgWebApp {
   setHeaderColor?(c: string): void;
   setBackgroundColor?(c: string): void;
   setBottomBarColor?(c: string): void;
+  openInvoice?(url: string, cb?: (status: 'paid' | 'cancelled' | 'failed' | 'pending') => void): void;
   HapticFeedback?: {
     impactOccurred(style: 'light' | 'medium' | 'heavy'): void;
     notificationOccurred(type: 'error' | 'success' | 'warning'): void;
@@ -39,7 +40,17 @@ const tg = () => window.Telegram?.WebApp;
 /** Мы внутри Telegram: только там у приложения есть подпись initData. */
 export const inTelegram = () => !!tg()?.initData;
 
-export const telegramName = () => tg()?.initDataUnsafe.user?.first_name ?? '';
+/** Подписанные данные запуска: по ним сервер узнаёт пользователя. */
+export const initData = () => tg()?.initData ?? '';
+
+/** Окно оплаты Telegram Stars. Вернёт статус оплаты. */
+export function openInvoice(url: string): Promise<string> {
+  const w = tg();
+  if (!w?.openInvoice) return Promise.resolve('failed');
+  return new Promise((resolve) => w.openInvoice!(url, resolve));
+}
+
+export const telegramName =() => tg()?.initDataUnsafe.user?.first_name ?? '';
 
 export function initTelegram() {
   const w = tg();

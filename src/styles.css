@@ -4741,3 +4741,27 @@ input:focus-visible {
   flex: none;
   margin-top: 1px;
 }
+
+/* Подписка */
+.paywall-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  text-align: left;
+}
+.paywall-ico {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: #dcf0fa;
+  display: grid;
+  place-items: center;
+}
+.paywall-list {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 700;
+}
