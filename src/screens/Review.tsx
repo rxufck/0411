@@ -104,7 +104,7 @@ export function ReviewScreen({
               <div>
                 <b>Пора повторить: {due.length}</b>
                 <small className="muted">
-                  Вопросы с ошибками и те, что пора освежить в памяти. Каждая исправленная ошибка возвращает жизнь.
+                  Вопросы с ошибками и те, что пора освежить в памяти.
                 </small>
               </div>
               <Btn onClick={() => onMistakes(due.slice(0, 10))}>Начать</Btn>

@@ -4,10 +4,10 @@ import { openPaywall, syncStatus, usePremium } from './premium';
 import { PaywallHost } from './components/Paywall';
 import type { Exercise, Question, TopicId } from './types';
 import type { TheoryCard } from './types';
-import { buildControl, buildReview, buildUnitDrill, findQuestion, pickFresh, topicById, unitKey } from './data/course';
+import { buildControl, buildReview, buildUnitDrill, findQuestion, pickFresh, STAGES, topicById, unitKey } from './data/course';
 import { topicUnits, type Unit } from './data/units';
 import { useTickets } from './data/tickets';
-import { heartsNow, useProgress } from './store';
+import { useProgress } from './store';
 import { Home, TopicSheet } from './screens/Home';
 import { Lesson, type LessonMode } from './screens/Lesson';
 import { Theory } from './screens/Theory';
@@ -16,7 +16,7 @@ import { ExamScreen } from './screens/Exam';
 import { ReviewScreen } from './screens/Review';
 import { DailyScreen, ProfileScreen } from './screens/Profile';
 import { Logo, Welcome } from './screens/Welcome';
-import { Btn, fmtMs, Modal, NavIcon } from './components/UI';
+import { NavIcon } from './components/UI';
 
 type Tab = 'learn' | 'exam' | 'review' | 'profile';
 
@@ -39,7 +39,6 @@ export default function App() {
   const [page, setPage] = useState<null | 'daily'>(null);
   const [sheet, setSheet] = useState<TopicId | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
-  const [noHearts, setNoHearts] = useState(false);
   // Кнопка «Назад» Telegram закрывает верхний слой: окно темы, урок или страницу.
   useEffect(
     () =>
@@ -68,11 +67,6 @@ export default function App() {
   };
 
   const lesson = (o: Omit<Extract<Overlay, { kind: 'lesson' }>, 'kind' | 'key'>) => {
-    const needsHearts = o.mode === 'practice' || o.mode === 'control';
-    if (needsHearts && heartsNow(p).hearts <= 0) {
-      setNoHearts(true);
-      return;
-    }
     setOverlay({ kind: 'lesson', key: Date.now(), ...o });
   };
 
@@ -95,7 +89,9 @@ export default function App() {
   };
 
   // Платные действия: без подписки вместо них открывается предложение подписки.
-  const paid = (fn: () => void) => (prem.active ? fn() : openPaywall());
+  const paid = (fn: () => void, free = false) => (prem.active || free ? fn() : openPaywall());
+  // Бесплатно только первый этап курса, «Старт».
+  const freeTopic = (t: TopicId) => STAGES[0].topics.includes(t);
 
   const seen = (id: string) => p.stats[id]?.seen ?? 0;
   const quiz = (title: string, qs: { id: string }[], extra: Partial<Extract<Overlay, { kind: 'lesson' }>> = {}) =>
@@ -160,10 +156,6 @@ export default function App() {
           if (o.topic && (o.control || o.unit)) setSheet(o.topic);
         }}
         onRestart={o.again}
-        onReview={() => {
-          setOverlay(null);
-          openTab('review');
-        }}
         onFinish={(r) => {
           if (r.xp > 0) addXp(r.xp);
           if (o.ticket && r.total === r.answered) store.recordTicket(o.ticket, r.total - r.correct);
@@ -192,7 +184,7 @@ export default function App() {
       </nav>
       <main className="main">
         {page === 'daily' && <DailyScreen onBack={() => setPage(null)} />}
-                {!page && tab === 'learn' && <Home onTopic={setSheet} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
+                {!page && tab === 'learn' && <Home onTopic={(t) => paid(() => setSheet(t), freeTopic(t))} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
         {!page && tab === 'exam' && (
           <ExamScreen
             onExit={() => openTab('exam')}
@@ -209,9 +201,9 @@ export default function App() {
           <ReviewScreen
             onMistakes={(ids) => paid(() => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' }))}
             onTopicReview={(t) => paid(() => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) }))}
-            onTheory={(t) => setOverlay({ kind: 'theory', topic: t, readOnly: true })}
+            onTheory={(t) => paid(() => setOverlay({ kind: 'theory', topic: t, readOnly: true }))}
             onCards={(title, deck) => setOverlay({ kind: 'cards', title, deck })}
-            onReadCard={(topic, cards, title) => setOverlay({ kind: 'theory', topic, readOnly: true, cards, title })}
+            onReadCard={(topic, cards, title) => paid(() => setOverlay({ kind: 'theory', topic, readOnly: true, cards, title }))}
             onTrain={(title, ids) => paid(() => reviewOrQuiz('review', title, ids, { color: '#ff9600' }))}
           />
         )}
@@ -233,30 +225,6 @@ export default function App() {
 
       <PaywallHost />
 
-      {noHearts && (
-        <Modal onClose={() => setNoHearts(false)}>
-          <h2>Жизни закончились</h2>
-          <p>
-            Новая жизнь появится через <b>{fmtMs(heartsNow(p).nextIn)}</b>.
-            {prem.active ? ' Исправь ошибки в «Повторении»: каждая исправленная ошибка возвращает жизнь.' : ''} Теорию можно читать всегда.
-          </p>
-          {prem.active && p.mistakes.length > 0 && (
-            <Btn
-              big
-              wide
-              onClick={() => {
-                setNoHearts(false);
-                openTab('review');
-              }}
-            >
-              Исправить ошибки
-            </Btn>
-          )}
-          <Btn wide variant="ghost" onClick={() => setNoHearts(false)}>
-            Понятно
-          </Btn>
-        </Modal>
-      )}
     </div>
   );
 }

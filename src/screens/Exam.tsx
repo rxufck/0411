@@ -33,8 +33,8 @@ export function ExamScreen({
 }) {
   const [chooser, setChooser] = useState<null | 'tickets' | 'topics' | 'num'>(null);
   const prem = usePremium();
-  // Без подписки экран виден целиком, но любое действие открывает предложение подписки.
-  const gate = (fn: () => void) => () => (prem.active ? fn() : openPaywall());
+  // Платные в экзамене только «Вопросы по номеру» и «Вопросы по темам».
+  const openPaid = (c: 'topics' | 'num') => (prem.active ? setChooser(c) : openPaywall());
   const { db, error } = useTickets();
   const [ticketNo, setTicketNo] = useState<number | null>(null);
   const { p, addExam, addMistakes, addXp } = useProgress();
@@ -153,7 +153,7 @@ export function ExamScreen({
               <small>Настоящий билет из 40: 20 вопросов, 20 минут, не больше 2 ошибок</small>
             </div>
           </div>
-          <Btn big wide variant="green" onClick={gate(start)} disabled={!db}>
+          <Btn big wide variant="green" onClick={start} disabled={!db}>
             {db ? 'Начать экзамен' : error ? 'Билеты не загрузились' : 'Загружаем билеты…'}
           </Btn>
           {error && <p className="muted small">Не удалось загрузить билеты. Обнови страницу.</p>}
@@ -165,7 +165,7 @@ export function ExamScreen({
                 <h2>Тренировка по билетам</h2>
                 <small>Те же вопросы, что на экзамене, без таймера</small>
               </header>
-            <button className="topic-row" onClick={gate(() => setChooser('tickets'))}>
+            <button className="topic-row" onClick={() => setChooser('tickets')}>
               <span className="topic-badge" style={{ background: '#137aaa', boxShadow: '0 3px 0 #0f6288', width: 48, height: 48 }}><BadgeIcon id="ticket" /></span>
               <span className="topic-row-text">
                 <b>Билеты 1–40</b>
@@ -173,7 +173,7 @@ export function ExamScreen({
               </span>
               <span className="chev">›</span>
             </button>
-            <button className="topic-row" onClick={gate(() => setChooser('num'))}>
+            <button className="topic-row" onClick={() => openPaid('num')}>
               <span className="topic-badge" style={{ background: '#21844e', boxShadow: '0 3px 0 #1a6a3e', width: 48, height: 48 }}><BadgeIcon id="hash" /></span>
               <span className="topic-row-text">
                 <b>Вопросы по номеру</b>
@@ -181,7 +181,7 @@ export function ExamScreen({
               </span>
               <span className="chev">›</span>
             </button>
-            <button className="topic-row" onClick={gate(() => setChooser('topics'))}>
+            <button className="topic-row" onClick={() => openPaid('topics')}>
               <span className="topic-badge" style={{ background: '#7052d6', boxShadow: '0 3px 0 #5a42ac', width: 48, height: 48 }}><BadgeIcon id="list" /></span>
               <span className="topic-row-text">
                 <b>Вопросы по темам</b>
@@ -189,7 +189,7 @@ export function ExamScreen({
               </span>
               <span className="chev">›</span>
             </button>
-            <button className="topic-row" onClick={gate(onMarathon)}>
+            <button className="topic-row" onClick={onMarathon}>
               <span className="topic-badge" style={{ background: '#aa6400', boxShadow: '0 3px 0 #885000', width: 48, height: 48 }}><BadgeIcon id="bolt" /></span>
               <span className="topic-row-text">
                 <b>Марафон</b>
@@ -203,7 +203,7 @@ export function ExamScreen({
                 <h2>Мои вопросы</h2>
                 <small>Что стоит повторить</small>
               </header>
-            <button className="topic-row" onClick={gate(onMistakes)}>
+            <button className="topic-row" onClick={onMistakes}>
               <span className="topic-badge" style={{ background: '#d03d3d', boxShadow: '0 3px 0 #a63131', width: 48, height: 48 }}><BadgeIcon id="alert" /></span>
               <span className="topic-row-text">
                 <b>Ошибки</b>
@@ -211,7 +211,7 @@ export function ExamScreen({
               </span>
               <span className="chev">›</span>
             </button>
-            <button className="topic-row" onClick={gate(onBookmarks)} disabled={prem.active && !p.bookmarks.length}>
+            <button className="topic-row" onClick={onBookmarks} disabled={!p.bookmarks.length}>
               <span className="topic-badge" style={{ background: '#137aaa', boxShadow: '0 3px 0 #0f6288', width: 48, height: 48 }}><BadgeIcon id="star" /></span>
               <span className="topic-row-text">
                 <b>Закладки</b>

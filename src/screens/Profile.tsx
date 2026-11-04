@@ -2,13 +2,12 @@ import { useState } from 'react';
 import { TOPICS } from '../data/course';
 import { ACHIEVEMENTS, DAILY_TASKS, STREAK_REWARD } from '../data/goals';
 import { levelInfo, topicAccuracy, useProgress } from '../store';
-import { Avatar, BackBtn, BadgeIcon, Btn, InfoRow, Modal, Section, TopicBadge, useHearts } from '../components/UI';
+import { Avatar, BackBtn, BadgeIcon, Btn, InfoRow, Modal, Section, TopicBadge } from '../components/UI';
 import { UiIcon } from '../components/Icons';
 
 export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
   const { p, setName, setSettings, reset } = useProgress();
   const lv = levelInfo(p.xp);
-  const { hearts } = useHearts();
   const [allAch, setAllAch] = useState(false);
   const [settings, setSettingsOpen] = useState(false);
   const [editName, setEditName] = useState(false);
@@ -72,11 +71,10 @@ export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
 
       <Section title="Итоги" sub="Как идёт обучение" tone="green">
         <InfoRow tone="gold" icon="fire" title="Дней подряд" sub="Сколько дней ты занимаешься без пропусков" value={p.streak} />
-        <InfoRow tone="red" icon="heart" title="Жизни" sub="Тратятся на ошибках в практике, восстанавливаются" value={`${hearts} из 5`} />
         <InfoRow tone="green" icon="check" title="Правильных ответов" value={`${seen ? Math.round((right / seen) * 100) : 0}%`} />
         <InfoRow tone="blue" icon="trophy" title="Экзамены сданы" value={`${p.exams.filter((e) => e.passed).length} из ${p.exams.length}`} />
         <InfoRow tone="purple" icon="puzzle" title="Самая сложная тема" value={hardest ? hardest.t.title : '—'} />
-        <InfoRow tone="teal" icon="heart" title="Любимая тема" value={favorite && favorite !== hardest ? favorite.t.title : '—'} />
+        <InfoRow tone="teal" icon="star" title="Любимая тема" value={favorite && favorite !== hardest ? favorite.t.title : '—'} />
       </Section>
 
       <Section title="Достижения" sub={`Получено ${unlocked.length} из ${ACHIEVEMENTS.length}`} tone="gold">

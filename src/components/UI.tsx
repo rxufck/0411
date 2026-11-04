@@ -1,5 +1,5 @@
-import { useEffect, useState, type ButtonHTMLAttributes, type ReactNode } from 'react';
-import { heartsNow, levelInfo, useProgress } from '../store';
+import { type ButtonHTMLAttributes, type ReactNode } from 'react';
+import { levelInfo, useProgress } from '../store';
 import { UiIcon } from './Icons';
 import { TOPICS } from '../data/course';
 import type { TopicId } from '../types';
@@ -113,26 +113,15 @@ export function Avatar({ size = 44, name }: { size?: number; name?: string }) {
   );
 }
 
-export function useHearts() {
-  const { p } = useProgress();
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const t = setInterval(() => tick((x) => x + 1), 1000);
-    return () => clearInterval(t);
-  }, []);
-  return heartsNow(p);
-}
-
 export const fmtMs = (ms: number) => {
   const s = Math.ceil(ms / 1000);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-/** Шапка как в референсе: аватар, уровень, серия, сердечки, опыт. */
+/** Шапка как в референсе: аватар, уровень, серия, опыт. */
 export function ProfileHeader({ onProfile }: { onProfile?: () => void }) {
   const { p } = useProgress();
   const lv = levelInfo(p.xp);
-  const { hearts } = useHearts();
   return (
     <div className="phead">
       <button className="phead-user" onClick={onProfile}>
@@ -149,10 +138,6 @@ export function ProfileHeader({ onProfile }: { onProfile?: () => void }) {
         <div className="phead-stat">
           <span className="ico"><UiIcon id="fire" size={22} /></span>
           <b>{p.streak}</b>
-        </div>
-        <div className="phead-stat">
-          <span className="ico"><UiIcon id="heart" size={22} /></span>
-          <b>{hearts}</b>
         </div>
         <div className="phead-stat">
           <span className="ico"><UiIcon id="gem" size={22} /></span>

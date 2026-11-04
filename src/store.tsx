@@ -48,8 +48,6 @@ export interface Progress {
   best: Partial<Record<TopicId, number>>;
   stats: Record<string, QStat>;
   mistakes: string[];
-  hearts: number;
-  heartsAt: number;
   daily: Daily;
   flags: string[];
   exams: ExamRecord[];
@@ -61,8 +59,6 @@ export interface Progress {
 
 const KEY = 'pdd-quest-v2';
 const OLD_ORDER = ['theory', 'practice', 'practice2', 'control'];
-export const MAX_HEARTS = 5;
-export const HEART_MS = 20 * 60 * 1000;
 const BOX_DAYS = [0, 1, 3, 7, 16];
 
 export const todayStr = (d = new Date()) => d.toISOString().slice(0, 10);
@@ -85,8 +81,6 @@ const initial = (): Progress => ({
   best: {},
   stats: {},
   mistakes: [],
-  hearts: MAX_HEARTS,
-  heartsAt: Date.now(),
   daily: freshDaily(),
   flags: [],
   exams: [],
@@ -94,23 +88,6 @@ const initial = (): Progress => ({
   bookmarks: [],
   settings: { sound: true, voice: true, dailyGoal: 50 },
 });
-
-/** Сердечки восстанавливаются по одному каждые 20 минут. */
-export function heartsNow(p: Pick<Progress, 'hearts' | 'heartsAt'>, now = Date.now()) {
-  if (p.hearts >= MAX_HEARTS) return { hearts: MAX_HEARTS, nextIn: 0 };
-  const gained = Math.floor((now - p.heartsAt) / HEART_MS);
-  const hearts = Math.min(MAX_HEARTS, p.hearts + gained);
-  return { hearts, nextIn: hearts >= MAX_HEARTS ? 0 : HEART_MS - ((now - p.heartsAt) % HEART_MS) };
-}
-
-function withHearts(p: Progress, delta: number): Progress {
-  const now = Date.now();
-  const { hearts } = heartsNow(p, now);
-  const next = Math.max(0, Math.min(MAX_HEARTS, hearts + delta));
-  // Сохраняем «накопленное» время до следующего сердечка.
-  const carry = hearts >= MAX_HEARTS ? 0 : (now - p.heartsAt) % HEART_MS;
-  return { ...p, hearts: next, heartsAt: now - (next >= MAX_HEARTS ? 0 : carry) };
-}
 
 function load(): Progress {
   try {
@@ -165,7 +142,6 @@ interface Store {
   completeStep: (topic: TopicId, kind: string, score?: number) => void;
   fixMistake: (id: string) => void;
   addMistakes: (ids: string[], topicOf: (id: string) => TopicId | undefined) => void;
-  loseHeart: () => void;
   claimDaily: (id: string, xp: number) => void;
   addFlag: (f: string) => void;
   addExam: (r: ExamRecord) => void;
@@ -264,8 +240,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
         setP((p0) => {
           const p = touchDay(p0);
           if (!p.mistakes.includes(id)) return p;
-          // Исправленная ошибка возвращает сердечко.
-          return withHearts({ ...p, mistakes: p.mistakes.filter((m) => m !== id), daily: { ...p.daily, fixed: p.daily.fixed + 1 } }, 1);
+          return { ...p, mistakes: p.mistakes.filter((m) => m !== id), daily: { ...p.daily, fixed: p.daily.fixed + 1 } };
         }),
       addMistakes: (ids, topicOf) =>
         setP((p) => {
@@ -278,7 +253,6 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           });
           return { ...p, stats, mistakes: Array.from(new Set([...p.mistakes, ...ids])) };
         }),
-      loseHeart: () => setP((p) => withHearts(p, -1)),
       claimDaily: (id, xp) => {
         setP((p) => (p.daily.claimed.includes(id) ? p : { ...p, daily: { ...p.daily, claimed: [...p.daily.claimed, id] } }));
         addXp(xp);

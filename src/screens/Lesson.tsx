@@ -4,7 +4,7 @@ import { controlPass } from '../data/course';
 import { useProgress } from '../store';
 import { play } from '../sound';
 import { LETTERS, MultipleChoice, type Status } from '../components/Exercises';
-import { BackBtn, Btn, Confetti, fmtMs, ProgressBar, StatTile, useHearts } from '../components/UI';
+import { BackBtn, Btn, Confetti, ProgressBar, StatTile } from '../components/UI';
 import { Theory } from './Theory';
 import { UiIcon } from '../components/Icons';
 import { isTicketQuestion } from '../data/tickets';
@@ -38,7 +38,6 @@ export function Lesson({
   onClose,
   onFinish,
   onRestart,
-  onReview,
   theoryCards,
 }: {
   mode: LessonMode;
@@ -51,13 +50,10 @@ export function Lesson({
   onClose: () => void;
   onFinish: (r: LessonResult) => void;
   onRestart?: () => void;
-  onReview?: () => void;
 }) {
-  const { p, record, loseHeart, fixMistake, toggleBookmark } = useProgress();
+  const { p, record, fixMistake, toggleBookmark } = useProgress();
   const sound = p.settings.sound;
-  const usesHearts = mode === 'practice' || mode === 'control';
   const canHint = mode === 'practice' || mode === 'drill' || mode === 'review';
-  const { hearts, nextIn } = useHearts();
 
   const [queue, setQueue] = useState<Exercise[]>(exercises);
   const [pos, setPos] = useState(0);
@@ -73,7 +69,7 @@ export function Lesson({
   const [xp, setXp] = useState(0);
   const [gained, setGained] = useState(0);
   const [praise, setPraise] = useState(PRAISE[0]);
-  const [phase, setPhase] = useState<'play' | 'done' | 'failed'>('play');
+  const [phase, setPhase] = useState<'play' | 'done'>('play');
   const [theoryOpen, setTheoryOpen] = useState(false);
   const [startedAt] = useState(Date.now());
 
@@ -84,7 +80,7 @@ export function Lesson({
 
   const finalize = useCallback(
     (ok: boolean, clean: boolean) => {
-      // Итог по заданию: статистика, ошибки, сердечки, опыт.
+      // Итог по заданию: статистика, ошибки, опыт.
       if (q) {
         const isSign = SIGN_TOPICS.includes(q.topic);
         record(q.id, q.topic, ok && clean, { sign: isSign });
@@ -108,13 +104,12 @@ export function Lesson({
       } else {
         setGained(0);
         play('wrong', sound);
-        if (usesHearts) loseHeart();
         if (mode === 'control' || mode === 'quiz' || (mode === 'drill' && !again)) setSolved((s) => s + 1);
       }
       setStatus(ok ? 'right' : 'wrong');
       setSheet(true);
     },
-    [q, ex, mode, record, fixMistake, sound, usesHearts, loseHeart, requeued],
+    [q, ex, mode, record, fixMistake, sound, requeued],
   );
 
   const check = useCallback(() => {
@@ -133,10 +128,6 @@ export function Lesson({
   }, [ex, canCheck, selected, crossed, hintShown, canHint, sound, finalize]);
 
   const next = useCallback(() => {
-    if (usesHearts && hearts <= 0) {
-      setPhase('failed');
-      return;
-    }
     const last = pos + 1 >= queue.length;
     if (last) {
       play('finish', sound);
@@ -150,7 +141,7 @@ export function Lesson({
     setHintShown(false);
     setDropped([]);
     setSheet(false);
-  }, [usesHearts, hearts, pos, queue.length, sound]);
+  }, [pos, queue.length, sound]);
 
   const tryAgain = () => {
     setSheet(false);
@@ -234,32 +225,6 @@ export function Lesson({
     );
   }
 
-  if (phase === 'failed') {
-    return (
-      <div className="screen-full finish v3 bad">
-        <FinishHero mood="sad">
-          <span className="finish-score">
-            <UiIcon id="heart" size={22} /> <b>0</b>
-          </span>
-        </FinishHero>
-        <div className="finish-body">
-        <h1 className="finish-title bad">Жизни закончились</h1>
-        <p className="muted">
-          Не беда! Новая жизнь появится через <b>{fmtMs(nextIn)}</b>. А пока исправь ошибки в «Повторении» — за каждую исправленную ошибку вернётся жизнь.
-        </p>
-        {onReview && (
-          <Btn big wide onClick={onReview}>
-            Исправить ошибки
-          </Btn>
-        )}
-        <Btn wide variant="ghost" onClick={() => onFinish({ xp, correct: correctTotal, total, answered: solved, passed: false })}>
-          Выйти
-        </Btn>
-        </div>
-      </div>
-    );
-  }
-
   if (!ex) return null;
 
   const correctText = `${LETTERS[ex.q.correct]}. ${ex.q.options[ex.q.correct]}`;
@@ -284,11 +249,6 @@ export function Lesson({
           </div>
           <ProgressBar value={Math.min(1, solved / total)} color={color} />
         </div>
-        {usesHearts ? (
-          <div className={`hearts ${status === 'wrong' ? 'shake' : ''}`} aria-label={`Жизней: ${hearts}`}>
-            <UiIcon id="heart" size={26} /> <b>{hearts}</b>
-          </div>
-        ) : null}
       </div>
 
       <div className="lesson-body" key={pos}>

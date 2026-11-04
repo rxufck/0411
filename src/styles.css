@@ -4765,3 +4765,13 @@ input:focus-visible {
   gap: 8px;
   font-weight: 700;
 }
+
+.topic-row-lock {
+  flex: none;
+  font-size: 12px;
+  font-weight: 800;
+  color: #0f6288;
+  background: #dcf0fa;
+  border-radius: 999px;
+  padding: 6px 10px;
+}

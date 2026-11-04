@@ -4,6 +4,7 @@ import { controlPass, controlSize, isMastered, nextStep, nextUnit, STAGES, stepK
 import { topicUnits, type Unit } from '../data/units';
 import { useTickets } from '../data/tickets';
 import { todayStr, useProgress, type Progress } from '../store';
+import { usePremium } from '../premium';
 import { UiIcon } from '../components/Icons';
 import { BadgeIcon, Btn, ProfileHeader, Sheet, TopicBadge } from '../components/UI';
 import { DAILY_TASKS } from '../data/goals';
@@ -120,6 +121,7 @@ export function Home({
   onProfile: () => void;
 }) {
   const { p } = useProgress();
+  const prem = usePremium();
   const { db } = useTickets();
   const dailyDone = DAILY_TASKS.filter((t) => t.progress(p) >= t.goal).length;
   const complete = (t: TopicId) => topicComplete(t, p.done, p.stats);
@@ -200,6 +202,8 @@ export function Home({
                       <span className="topic-row-go" style={{ background: t.color, boxShadow: `0 3px 0 ${t.shade}` }}>
                         {prog > 0 ? 'Продолжить' : 'Начать'}
                       </span>
+                    ) : !prem.active && si > 0 ? (
+                      <span className="topic-row-lock">Подписка</span>
                     ) : (
                       <span className="chev">›</span>
                     )}
