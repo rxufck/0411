@@ -4654,3 +4654,90 @@ input:focus-visible {
 .in-telegram .nav {
   padding-bottom: calc(10px + env(safe-area-inset-bottom));
 }
+
+/* Дата экзамена и план на день */
+.plan-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: #fff;
+  border: 2px solid var(--line, #e3d7c8);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  box-shadow: 0 3px 0 var(--line, #e3d7c8);
+  margin-bottom: 14px;
+}
+.plan-ico {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: #fff3df;
+  display: grid;
+  place-items: center;
+}
+.plan-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.plan-text b {
+  font-size: 16px;
+}
+.plan-text small {
+  color: var(--muted, #77685f);
+  font-weight: 700;
+}
+.plan-bar {
+  height: 8px;
+  border-radius: 6px;
+  background: #eee4d6;
+  margin-top: 6px;
+  overflow: hidden;
+}
+.plan-bar i {
+  display: block;
+  height: 100%;
+  background: #388201;
+  border-radius: 6px;
+}
+.plan-today {
+  margin-top: 2px;
+}
+.plan-note {
+  background: #dcf0fa;
+  color: #0f6288;
+  font-weight: 800;
+  border-radius: var(--r-md);
+  padding: 10px 14px;
+  margin: -4px 0 14px;
+}
+.plan-date {
+  width: 100%;
+  font: inherit;
+  font-weight: 800;
+  padding: 14px;
+  margin: 8px 0 12px;
+  border: 2px solid var(--line, #e3d7c8);
+  border-radius: var(--r-md);
+  background: #fff;
+  color: inherit;
+}
+.plan-freeze {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  background: #eef7fc;
+  border-radius: var(--r-md);
+  padding: 12px;
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+.plan-freeze svg {
+  flex: none;
+  margin-top: 1px;
+}

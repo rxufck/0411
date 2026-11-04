@@ -1,8 +1,9 @@
+import { useState } from 'react';
 import type { TopicId } from '../types';
 import { controlPass, controlSize, isMastered, nextStep, nextUnit, STAGES, stepKey, ticketMastery, TOPICS, topicById, topicComplete, unitKey, unitMastery } from '../data/course';
 import { topicUnits, type Unit } from '../data/units';
 import { useTickets } from '../data/tickets';
-import { useProgress, type Progress } from '../store';
+import { todayStr, useProgress, type Progress } from '../store';
 import { UiIcon } from '../components/Icons';
 import { BadgeIcon, Btn, ProfileHeader, Sheet, TopicBadge } from '../components/UI';
 import { DAILY_TASKS } from '../data/goals';
@@ -16,6 +17,95 @@ function topicProgress(topic: TopicId, p: Progress) {
   const read = units.length ? units.filter((u) => p.done.includes(unitKey(topic, u))).length / units.length : 0;
   const m = ticketMastery(topic, p.stats);
   return (read + (m.total ? m.done / m.total : 0) + Number(p.done.includes(stepKey(topic, 'control')))) / 3;
+}
+
+const DAY = 86400000;
+
+/** Дата экзамена, прогноз готовности и план на сегодня. Серия с заморозками. */
+function ExamPlan({ masteredQ, totalQ }: { masteredQ: number; totalQ: number }) {
+  const { p, setExamDate } = useProgress();
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState(p.examDate ?? '');
+  const today = todayStr();
+  const left = p.examDate ? Math.round((Date.parse(p.examDate) - Date.parse(today)) / DAY) : null;
+  const remaining = Math.max(0, totalQ - masteredQ);
+  const perDay = left !== null && left > 0 ? Math.ceil(remaining / left) : remaining;
+  const doneToday = p.today.q ?? 0;
+  const ready = Math.round((masteredQ / totalQ) * 100);
+  const tooMuch = left !== null && left > 0 && perDay > 60;
+
+  let title = 'Назначь дату экзамена';
+  let sub = 'Посчитаем, сколько вопросов решать в день';
+  if (left !== null) {
+    if (left < 0) {
+      title = 'Дата экзамена прошла';
+      sub = 'Выбери новую дату, чтобы получить план';
+    } else if (left === 0) {
+      title = 'Экзамен сегодня';
+      sub = `Освоено ${ready}% вопросов. Пройди пару билетов для разминки`;
+    } else {
+      title = `До экзамена ${left} ${plural(left, 'день', 'дня', 'дней')}`;
+      sub = remaining === 0 ? 'Все вопросы освоены. Повторяй ошибки' : `Освоено ${ready}%. Нужно ${perDay} ${plural(perDay, 'вопрос', 'вопроса', 'вопросов')} в день`;
+    }
+  }
+
+  return (
+    <>
+      <button className="plan-card" onClick={() => { setDraft(p.examDate ?? ''); setOpen(true); }}>
+        <span className="plan-ico"><UiIcon id="calendar" size={24} /></span>
+        <span className="plan-text">
+          <b>{title}</b>
+          <small>{sub}</small>
+          {left !== null && left > 0 && remaining > 0 && (
+            <span className="plan-bar"><i style={{ width: `${Math.min(1, doneToday / perDay) * 100}%` }} /></span>
+          )}
+          {left !== null && left > 0 && remaining > 0 && (
+            <small className="plan-today">
+              Сегодня решено {doneToday} из {perDay}
+              {tooMuch ? '. Многовато, лучше сдвинуть дату' : ''}
+            </small>
+          )}
+        </span>
+        <span className="chev">›</span>
+      </button>
+      {p.froze === today && <div className="plan-note">Заморозка спасла твою серию. Осталось заморозок: {p.freezes}</div>}
+
+      {open && (
+        <Sheet onClose={() => setOpen(false)} title="Дата экзамена">
+          <p className="muted">Укажи день, на который записан экзамен. Приложение распределит вопросы по дням.</p>
+          <input className="plan-date" type="date" min={today} value={draft} onChange={(e) => setDraft(e.target.value)} />
+          <div className="plan-freeze">
+            <UiIcon id="shield" size={20} />
+            <span>
+              Заморозок серии: <b>{p.freezes}</b>. Они закрывают пропущенные дни. Новая даётся за каждые 7 дней подряд, максимум 3.
+            </span>
+          </div>
+          <Btn
+            wide
+            disabled={!draft}
+            onClick={() => {
+              setExamDate(draft);
+              setOpen(false);
+            }}
+          >
+            Сохранить
+          </Btn>
+          {p.examDate && (
+            <Btn
+              variant="white"
+              wide
+              onClick={() => {
+                setExamDate(null);
+                setOpen(false);
+              }}
+            >
+              Убрать дату
+            </Btn>
+          )}
+        </Sheet>
+      )}
+    </>
+  );
 }
 
 export function Home({
@@ -71,6 +161,8 @@ export function Home({
           <span className="chev">›</span>
         </button>
       </div>
+
+      <ExamPlan masteredQ={masteredQ} totalQ={totalQ} />
 
       <div className="course">
         {STAGES.map((st, si) => {

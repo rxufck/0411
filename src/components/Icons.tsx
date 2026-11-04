@@ -8,6 +8,12 @@ const UI_ICONS = {
       <path d="M8 15 L11 18 L16.5 12.5" stroke="#58cc02" strokeWidth={2.4} fill="none" strokeLinecap="round" strokeLinejoin="round" />
     </>
   ),
+  shield: (
+    <>
+      <path d="M12 2.5 L20 5.5 V11.5 C20 16.5 16.5 20 12 21.5 C7.5 20 4 16.5 4 11.5 V5.5 Z" fill="#1cb0f6" />
+      <path d="M8.5 11.8 L11 14.3 L15.8 9.3" stroke="#fff" strokeWidth={2.2} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </>
+  ),
   heart: (
     <>
       <path d="M12 21.5 C5 16.5 2 13 2 8.8 C2 5.8 4.3 3.5 7.1 3.5 C9.1 3.5 10.9 4.6 12 6.3 C13.1 4.6 14.9 3.5 16.9 3.5 C19.7 3.5 22 5.8 22 8.8 C22 13 19 16.5 12 21.5 Z" fill="#ff4b4b" />

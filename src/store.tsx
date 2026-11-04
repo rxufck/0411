@@ -33,7 +33,13 @@ export interface Progress {
   xp: number;
   streak: number;
   lastActive: string | null;
-  today: { date: string; xp: number };
+  today: { date: string; xp: number; q?: number };
+  /** Дата экзамена в ГИБДД (ГГГГ-ММ-ДД) для плана подготовки. */
+  examDate: string | null;
+  /** Заморозки серии: закрывают пропущенные дни. */
+  freezes: number;
+  /** Дата, когда заморозка спасла серию в последний раз (чтобы показать сообщение). */
+  froze: string | null;
   /** Сколько из четырёх отмечаемых шагов пройдено в теме (0..4). */
   steps: Partial<Record<TopicId, number>>;
   /** Пройденные шаги в виде «тема:шаг» — шаги можно проходить в любом порядке. */
@@ -70,7 +76,10 @@ const initial = (): Progress => ({
   xp: 0,
   streak: 0,
   lastActive: null,
-  today: { date: todayStr(), xp: 0 },
+  today: { date: todayStr(), xp: 0, q: 0 },
+  examDate: null,
+  freezes: 2,
+  froze: null,
   steps: {},
   done: [],
   best: {},
@@ -119,10 +128,18 @@ function normalize(saved: Partial<Progress>): Progress {
     // Старый формат: шаги шли строго по порядку, переводим в список пройденных.
     if (!p.done.length)
       p.done = (Object.entries(p.steps) as [TopicId, number][]).flatMap(([t, n]) => OLD_ORDER.slice(0, n).map((k) => `${t}:${k}`));
-    if (p.today.date !== todayStr()) p.today = { date: todayStr(), xp: 0 };
+    if (p.today.date !== todayStr()) p.today = { date: todayStr(), xp: 0, q: 0 };
     if (p.daily.date !== todayStr()) p.daily = freshDaily();
     const y = addDays(-1);
-    if (p.lastActive && p.lastActive !== todayStr() && p.lastActive !== y) p.streak = 0;
+    if (p.lastActive && p.lastActive !== todayStr() && p.lastActive !== y) {
+      // Пропущено дней между последним занятием и вчера: заморозки закрывают их, пока хватает.
+      const missed = Math.round((Date.parse(y) - Date.parse(p.lastActive)) / 86400000);
+      if (p.streak > 0 && missed > 0 && p.freezes >= missed) {
+        p.freezes -= missed;
+        p.lastActive = y;
+        p.froze = todayStr();
+      } else p.streak = 0;
+    }
     return p;
   } catch {
     return initial();
@@ -155,6 +172,7 @@ interface Store {
   recordTicket: (ticket: number, errors: number) => void;
   toggleBookmark: (id: string) => void;
   setName: (n: string) => void;
+  setExamDate: (d: string | null) => void;
   finishOnboarding: () => void;
   setSettings: (s: Partial<Progress['settings']>) => void;
   reset: () => void;
@@ -166,7 +184,7 @@ function touchDay(p: Progress): Progress {
   const t = todayStr();
   return {
     ...p,
-    today: p.today.date === t ? p.today : { date: t, xp: 0 },
+    today: p.today.date === t ? p.today : { date: t, xp: 0, q: 0 },
     daily: p.daily.date === t ? p.daily : freshDaily(),
   };
 }
@@ -208,7 +226,9 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       const p = touchDay(p0);
       const t = todayStr();
       const streak = p.lastActive === t ? p.streak : p.lastActive === addDays(-1) ? p.streak + 1 : 1;
-      return { ...p, xp: p.xp + n, today: { date: t, xp: p.today.xp + n }, lastActive: t, streak };
+      // Каждые 7 дней серии дарят заморозку, но не больше трёх про запас.
+      const freezes = streak !== p.streak && streak % 7 === 0 ? Math.min(3, p.freezes + 1) : p.freezes;
+      return { ...p, xp: p.xp + n, today: { ...p.today, date: t, xp: p.today.xp + n }, lastActive: t, streak, freezes };
     });
   }, []);
 
@@ -224,7 +244,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
           const stat: QStat = { topic, seen: s.seen + 1, right: s.right + (ok ? 1 : 0), box, due: addDays(BOX_DAYS[box]) };
           const mistakes = ok ? p.mistakes : p.mistakes.includes(id) ? p.mistakes : [...p.mistakes, id];
           const daily = ok && opts?.sign ? { ...p.daily, signs: p.daily.signs + 1 } : p.daily;
-          return { ...p, stats: { ...p.stats, [id]: stat }, mistakes, daily };
+          return { ...p, stats: { ...p.stats, [id]: stat }, mistakes, daily, today: { ...p.today, q: (p.today.q ?? 0) + 1 } };
         }),
       completeStep: (topic, kind, score) =>
         setP((p0) => {
@@ -268,6 +288,7 @@ export function ProgressProvider({ children }: { children: ReactNode }) {
       recordTicket: (ticket, errors) => setP((p) => ({ ...p, tickets: { ...p.tickets, [ticket]: Math.min(errors, p.tickets[ticket] ?? Infinity) } })),
       toggleBookmark: (id) => setP((p) => ({ ...p, bookmarks: p.bookmarks.includes(id) ? p.bookmarks.filter((b) => b !== id) : [...p.bookmarks, id] })),
       setName: (n) => setP((p) => ({ ...p, name: n })),
+      setExamDate: (d) => setP((p) => ({ ...p, examDate: d })),
       finishOnboarding: () => setP((p) => ({ ...p, onboarded: true })),
       setSettings: (s) => setP((p) => ({ ...p, settings: { ...p.settings, ...s } })),
       reset: () => setP({ ...initial(), onboarded: true }),
