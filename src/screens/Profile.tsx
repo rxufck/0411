@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { TOPICS } from '../data/course';
 import { ACHIEVEMENTS, DAILY_TASKS, STREAK_REWARD } from '../data/goals';
 import { levelInfo, topicAccuracy, useProgress } from '../store';
@@ -79,9 +79,12 @@ export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
 
       <Section title="Достижения" sub={`Получено ${unlocked.length} из ${ACHIEVEMENTS.length}`} tone="gold">
         <div className="card">
-          <div className="badges">
-            {ACHIEVEMENTS.slice(0, 5).map((a) => (
-              <Badge key={a.id} id={a.id} color={a.color} on={a.done(p)} />
+          <div className="ach-grid">
+            {ACHIEVEMENTS.map((a) => (
+              <div key={a.id} className={`ach-cell ${a.done(p) ? 'on' : ''}`}>
+                <Badge id={a.id} color={a.color} on={a.done(p)} />
+                <small>{a.title}</small>
+              </div>
             ))}
           </div>
         </div>
@@ -115,17 +118,33 @@ export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
 
       {allAch && (
         <Modal onClose={() => setAllAch(false)}>
-          <h2>Достижения</h2>
+          <div className="ach-head">
+            <h2>Достижения</h2>
+            <small>
+              Получено {unlocked.length} из {ACHIEVEMENTS.length}
+            </small>
+            <span className="ach-meter">
+              <i style={{ width: `${(unlocked.length / ACHIEVEMENTS.length) * 100}%` }} />
+            </span>
+          </div>
           <div className="ach-list">
-            {ACHIEVEMENTS.map((a) => (
-              <div key={a.id} className={`ach ${a.done(p) ? 'on' : ''}`}>
-                <Badge id={a.id} color={a.color} on={a.done(p)} />
-                <div>
-                  <b>{a.title}</b>
-                  <small className="muted">{a.desc}</small>
+            {ACHIEVEMENTS.map((a) => {
+              const on = a.done(p);
+              return (
+                <div key={a.id} className={`ach ${on ? 'on' : ''}`}>
+                  <Badge id={a.id} color={a.color} on={on} />
+                  <div>
+                    <b>{a.title}</b>
+                    <small className="muted">{a.desc}</small>
+                  </div>
+                  {on && (
+                    <span className="ach-done" aria-label="Получено">
+                      <BadgeIcon id="check" />
+                    </span>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <Btn wide onClick={() => setAllAch(false)}>
             Закрыть
@@ -171,11 +190,11 @@ export function ProfileScreen({ onDaily }: { onDaily: () => void }) {
   );
 }
 
-const ACH_ICON: Record<string, string> = { first: 'check', theory: 'cards', signs: 'alert', perfect: 'target', streak3: 'fire', streak7: 'medal', exam: 'ticket', master: 'trophy' };
+const ACH_ICON: Record<string, string> = { first: 'flag', theory: 'book', signs: 'alert', perfect: 'target', streak3: 'flame', streak7: 'medal', exam: 'ticket', master: 'trophy' };
 
 function Badge({ id, color, on }: { id: string; color: string; on: boolean }) {
   return (
-    <div className={`ach-badge ${on ? 'on' : ''}`} style={on ? { background: color, boxShadow: '0 3px 0 rgba(0,0,0,.25)' } : undefined}>
+    <div className={`ach-badge ${on ? 'on' : ''}`} style={on ? ({ '--c': color } as CSSProperties) : undefined}>
       <BadgeIcon id={ACH_ICON[id] ?? 'star'} />
     </div>
   );

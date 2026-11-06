@@ -4818,7 +4818,7 @@ input:focus-visible {
 
 /* Достижения: у закрытых виден тёмный силуэт значка */
 .ach-badge:not(.on) svg {
-  filter: brightness(0) opacity(0.28);
+  filter: brightness(0) opacity(0.4);
 }
 .ach-badge:not(.on) {
   position: relative;
@@ -5014,4 +5014,127 @@ input:focus-visible {
 }
 .lesson-top-title {
   max-width: 100%;
+}
+
+/* Достижения: ровные плитки, цвет у полученных, силуэт у закрытых */
+.ach-badge {
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: #efe6d9;
+  color: #7a6b61;
+  position: relative;
+}
+.ach-badge svg {
+  width: 28px;
+  height: 28px;
+}
+.ach-badge.on {
+  background: linear-gradient(155deg, color-mix(in srgb, var(--c) 72%, #fff), var(--c));
+  box-shadow: 0 4px 0 color-mix(in srgb, var(--c) 62%, #000), inset 0 2px 0 rgba(255, 255, 255, 0.35);
+}
+.ach-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px 6px;
+  padding: 6px 0 2px;
+}
+.ach-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+  min-width: 0;
+}
+.ach-cell small {
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1.15;
+  color: var(--muted, #77685f);
+  overflow-wrap: anywhere;
+}
+.ach-cell.on small {
+  color: var(--navy, #3b2a20);
+}
+.modal:has(.ach-list) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 86vh;
+  padding: 18px 16px 16px;
+}
+.ach-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+.ach-head h2 {
+  margin: 0;
+}
+.ach-head small {
+  font-weight: 800;
+  color: var(--muted, #77685f);
+}
+.ach-meter {
+  height: 8px;
+  border-radius: 6px;
+  background: #eee4d6;
+  overflow: hidden;
+}
+.ach-meter i {
+  display: block;
+  height: 100%;
+  background: var(--gold, #ffb800);
+  border-radius: 6px;
+}
+.ach-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 8px;
+  padding: 2px 2px 6px;
+}
+.ach {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 18px;
+  background: #fbf7f0;
+  border: 2px solid var(--line, #e3d7c8);
+  opacity: 1;
+}
+.ach.on {
+  background: #f1f9e8;
+  border-color: #b9dd93;
+}
+.ach > div:not(.ach-badge) {
+  flex: 1;
+  min-width: 0;
+  gap: 2px;
+}
+.ach b {
+  font-size: 16px;
+}
+.ach:not(.on) b,
+.ach:not(.on) small {
+  color: #9b8d82;
+}
+.ach-done {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #388201;
+}
+.ach-done svg {
+  width: 16px;
+  height: 16px;
 }
