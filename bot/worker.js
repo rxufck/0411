@@ -113,10 +113,9 @@ async function handleUpdate(env, up) {
   if (!msg) return;
   const id = msg.from?.id;
   if (msg.successful_payment) {
-    const u = await getUser(env, id);
+    // Подписка живёт в своём ключе: статус из приложения перезаписывает запись пользователя и мог затереть оплату.
     const exp = msg.successful_payment.subscription_expiration_date;
-    u.until = (exp ? exp * 1000 : Date.now() + PERIOD * 1000);
-    await putUser(env, id, u);
+    await env.KV.put(`s:${id}`, String(exp ? exp * 1000 : Date.now() + PERIOD * 1000));
     await api(env, 'sendMessage', { chat_id: msg.chat.id, text: 'Спасибо! Экзамен и разбор ошибок открыты.', reply_markup: openBtn('Открыть тренажёр') });
     return;
   }
@@ -168,7 +167,7 @@ export default {
         if (typeof body.lastActive === 'string') u.last = body.lastActive.slice(0, 10);
         if (Number.isFinite(body.streak)) u.streak = body.streak;
         await putUser(env, user.id, u);
-        return json({ until: u.until ?? 0 });
+        return json({ until: Number(await env.KV.get(`s:${user.id}`)) || 0 });
       }
       const r = await api(env, 'createInvoiceLink', {
         title: 'Подписка на месяц',
