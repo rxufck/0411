@@ -81,11 +81,16 @@ export async function subscribe() {
     const { url } = await post('/api/invoice', {});
     const status = await openInvoice(url);
     if (status === 'paid') {
-      // Платёж доходит до сервера через бота за секунды: спрашиваем несколько раз.
-      for (let i = 0; i < 8 && state.until < Date.now(); i++) {
+      // Сразу открываем доступ, а сервер подтвердит ниже: плашка пробного дня исчезает без задержки.
+      set({ until: Date.now() + 30 * 24 * 60 * 60 * 1000 });
+      // Платёж доходит до сервера через бота за секунды: сверяемся, пока он не подтвердит срок.
+      for (let i = 0; i < 8; i++) {
         await new Promise((r) => setTimeout(r, 1500));
         const d = await post('/api/status', {});
-        set({ until: Number(d.until) || 0 });
+        if (Number(d.until) > Date.now()) {
+          set({ until: Number(d.until) });
+          break;
+        }
       }
     } else if (status === 'failed') set({ error: 'Оплата не прошла. Попробуй ещё раз.' });
   } catch {

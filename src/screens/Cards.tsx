@@ -138,7 +138,11 @@ export function Cards({ title, deck, onClose }: { title: string; deck: Question[
           onPointerDown={onDown}
           onPointerMove={onMove}
           onPointerUp={onUp}
-          onPointerCancel={onUp}
+          onPointerCancel={() => {
+            // Браузер забрал жест под прокрутку: карточку не переворачиваем и не смахиваем.
+            start.current = null;
+            setDx(0);
+          }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {

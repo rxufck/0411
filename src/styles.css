@@ -4880,13 +4880,13 @@ input:focus-visible {
   }
 }
 .main > * {
-  animation: up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 .course .topic-row,
 .steps .step,
 .plan-card,
 .progress-card {
-  animation: up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
 }
 .course .topic-row:nth-child(2), .steps .step:nth-child(2) { animation-delay: 50ms; }
 .course .topic-row:nth-child(3), .steps .step:nth-child(3) { animation-delay: 100ms; }
@@ -4919,11 +4919,11 @@ input:focus-visible {
 .pbar-fill,
 .mini-bar div {
   transform-origin: left center;
-  animation: barIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: barIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
   transition: width 0.5s ease;
 }
 .option.correct {
-  animation: pop 0.4s ease-out, glow 0.7s ease-out;
+  animation: pop 0.4s ease-out backwards, glow 0.7s ease-out backwards;
 }
 .option.wrong {
   animation: shake 0.4s ease-out;
@@ -4945,4 +4945,49 @@ input:focus-visible {
   .option.correct, .option.wrong, .phead-stat .ico svg, .topic-row.current .topic-row-go, .nav-btn.on svg {
     animation: none !important;
   }
+}
+
+/* Окна всегда поверх нижней панели; нижняя панель без двойного отступа */
+.in-telegram .nav {
+  padding-bottom: max(8px, env(safe-area-inset-bottom), var(--tg-safe-area-inset-bottom, 0px));
+}
+
+/* Карточки: текст прокручивается внутри карточки, кнопки в одну строку */
+.screen-full.lesson .cards-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
+}
+.cards-body .flash {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+.flash-btns {
+  flex-direction: row;
+}
+.flash-btns .btn {
+  min-width: 0;
+}
+
+/* Окно подписки: кнопка оплаты всегда видна */
+.sheet .paywall-card .btn-big {
+  position: sticky;
+  bottom: -4px;
+  z-index: 2;
+  box-shadow: 0 -10px 12px -6px #fff, 0 4px 0 var(--green-d, #2d6801);
+}
+
+/* Крупнее зона нажатия у закладки; в окне подписки текст не прячется под кнопкой */
+.ticket-cap .star {
+  min-width: 44px;
+  min-height: 40px;
+}
+.sheet .paywall-card {
+  padding-bottom: 8px;
 }

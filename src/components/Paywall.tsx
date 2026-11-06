@@ -7,7 +7,7 @@ export function PaywallHost() {
   const { paywall, subscribed } = usePremium();
   if (!paywall || subscribed) return null;
   return (
-    <Sheet onClose={closePaywall}>
+    <Sheet onClose={closePaywall} title="Подписка">
       <PaywallCard />
       <Btn wide variant="ghost" onClick={closePaywall}>
         Не сейчас
