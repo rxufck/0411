@@ -5006,3 +5006,12 @@ input:focus-visible {
   aspect-ratio: auto;
   object-fit: contain;
 }
+
+/* Длинное название блока не раздвигает шапку урока */
+.lesson-top-mid,
+.lesson-top-title {
+  min-width: 0;
+}
+.lesson-top-title {
+  max-width: 100%;
+}
