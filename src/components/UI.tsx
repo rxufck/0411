@@ -28,9 +28,10 @@ export function ProgressBar({ value, color = 'var(--green)' }: { value: number; 
   );
 }
 
-export function BackBtn({ onClick, label = 'Назад' }: { onClick: () => void; label?: string }) {
+export function BackBtn({ onClick, label = 'Назад', native }: { onClick: () => void; label?: string; native?: boolean }) {
   return (
-    <button className="back-btn" onClick={onClick} aria-label={label}>
+    // native: в Telegram то же самое делает его собственная кнопка «Назад», вторую стрелку прячем
+    <button className={`back-btn ${native ? 'back-native' : ''}`} onClick={onClick} aria-label={label}>
       <svg viewBox="0 0 24 24" width={24} height={24}>
         <path d="M15 5 L8 12 L15 19 M8 12 H20" stroke="currentColor" strokeWidth={2.6} fill="none" strokeLinecap="round" strokeLinejoin="round" />
       </svg>

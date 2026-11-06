@@ -208,7 +208,7 @@ export function DailyScreen({ onBack }: { onBack: () => void }) {
   return (
     <div className="page">
       <div className="page-head">
-        <BackBtn onClick={onBack} />
+        <BackBtn native onClick={onBack} />
         <h1 className="page-title">Задания на день</h1>
       </div>
       <InfoRow tone="gold" icon="fire" title="Дней подряд" sub={p.streak ? 'Продолжай в том же духе' : 'Пройди любой блок, чтобы начать'} value={p.streak} />

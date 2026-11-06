@@ -119,7 +119,7 @@ export function Cards({ title, deck, onClose }: { title: string; deck: Question[
   return (
     <div className="screen-full lesson">
       <div className="lesson-top">
-        <BackBtn onClick={onClose} />
+        <BackBtn native onClick={onClose} />
         <div className="lesson-top-mid">
           <div className="lesson-top-title">
             <span>{title}</span>

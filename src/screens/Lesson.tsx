@@ -239,7 +239,7 @@ export function Lesson({
   return (
     <div className="screen-full lesson">
       <div className="lesson-top">
-        <BackBtn onClick={onClose} />
+        <BackBtn native onClick={onClose} />
         <div className="lesson-top-mid">
           <div className="lesson-top-title">
             <span>{title}</span>

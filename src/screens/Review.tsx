@@ -178,9 +178,9 @@ export function ReviewScreen({
                   )}
                 </div>
                 <div className="rev-btns">
-                  <button className="mini-btn" onClick={() => onTheory(t.topic)} title="Теория">
-                    <UiIcon id="book" size={20} />
-                  </button>
+                  <Btn variant="white" className="pill" onClick={() => onTheory(t.topic)}>
+                    <UiIcon id="book" size={18} /> Теория
+                  </Btn>
                   <Btn className="pill" onClick={() => onTopicReview(t.topic)}>
                     Повторить
                   </Btn>

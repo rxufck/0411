@@ -5150,3 +5150,25 @@ input:focus-visible {
   display: block;
   margin: 0;
 }
+
+/* Telegram уже показывает свою кнопку «Назад»: вторая стрелка в приложении лишняя */
+.in-telegram .back-native {
+  display: none;
+}
+
+/* «Все темы» в повторении: название на всю ширину, кнопки отдельной строкой */
+.rev-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 10px 12px;
+  align-items: center;
+}
+.rev-row .rev-btns {
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+}
+.rev-row .rev-btns .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
