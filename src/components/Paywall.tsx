@@ -17,7 +17,7 @@ export function PaywallHost() {
 }
 
 export function PaywallCard() {
-  const { busy, error } = usePremium();
+  const { busy, error, trialOver } = usePremium();
   return (
     <>
       <div className="card paywall-card">
@@ -25,6 +25,7 @@ export function PaywallCard() {
           <UiIcon id="shield" size={34} />
         </span>
         <h2>Подписка на месяц</h2>
+        {trialOver && <p className="muted">Пробный день закончился. Чтобы продолжить, оформи подписку.</p>}
         <ul className="paywall-list">
           <li>Весь курс: все темы после «Старта» с теорией и билетами</li>
           <li>Повторение: разбор ошибок и теория по темам</li>
@@ -32,7 +33,7 @@ export function PaywallCard() {
           <li>В экзамене: вопросы по номеру и по темам</li>
         </ul>
         <Btn big wide disabled={busy} onClick={subscribe}>
-          {busy ? 'Открываем оплату…' : `Открыть за ${PRICE_STARS} Stars в месяц`}
+          {busy ? 'Открываем оплату…' : `Открыть за ${PRICE_STARS} Star в месяц`}
         </Btn>
         {error && <p className="err">{error}</p>}
         <small className="muted">Оплата в Telegram Stars. Продлевается каждые 30 дней, отменить можно в настройках Telegram.</small>

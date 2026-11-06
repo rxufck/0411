@@ -5,7 +5,23 @@ import { initData, inTelegram, openInvoice } from './telegram';
 const SERVER = 'https://pdd-bot.r4ufism.workers.dev';
 const CACHE = 'pdd-premium-until';
 
-export const PRICE_STARS = 150;
+export const PRICE_STARS = 1;
+
+/** Первые сутки в Telegram всё открыто. */
+const TRIAL_MS = 24 * 60 * 60 * 1000;
+const TRIAL_KEY = 'pdd-trial-start';
+
+function trialStart() {
+  try {
+    const saved = Number(localStorage.getItem(TRIAL_KEY));
+    if (saved) return saved;
+    const now = Date.now();
+    localStorage.setItem(TRIAL_KEY, String(now));
+    return now;
+  } catch {
+    return Date.now();
+  }
+}
 
 interface State {
   until: number;
@@ -92,6 +108,9 @@ export function usePremium() {
     },
     () => state,
   );
-  const active = !inTelegram() || s.until > Date.now();
-  return { active, until: s.until, busy: s.busy, error: s.error, paywall: s.paywall };
+  const trialEnd = inTelegram() ? trialStart() + TRIAL_MS : 0;
+  const subscribed = s.until > Date.now();
+  const trialLeft = !subscribed && trialEnd > Date.now() ? trialEnd - Date.now() : 0;
+  const active = !inTelegram() || subscribed || trialLeft > 0;
+  return { active, subscribed, trialLeft, trialOver: inTelegram() && !subscribed && trialLeft === 0, until: s.until, busy: s.busy, error: s.error, paywall: s.paywall };
 }

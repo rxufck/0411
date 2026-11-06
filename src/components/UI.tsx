@@ -139,10 +139,6 @@ export function ProfileHeader({ onProfile }: { onProfile?: () => void }) {
           <span className="ico"><UiIcon id="fire" size={22} /></span>
           <b>{p.streak}</b>
         </div>
-        <div className="phead-stat">
-          <span className="ico"><UiIcon id="gem" size={22} /></span>
-          <b>{p.xp}</b>
-        </div>
       </div>
     </div>
   );

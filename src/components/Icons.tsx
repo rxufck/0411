@@ -41,12 +41,6 @@ const UI_ICONS = {
       <path d="M20 13 V14 Q20 17.5 16.5 17.5 H6 M9 20.5 L6 17.5 L9 14.5" stroke="#ff9600" strokeWidth={2.6} strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </>
   ),
-  gem: (
-    <>
-      <path d="M6.5 4 H17.5 L22 9.5 L12 21 L2 9.5 Z" fill="#1cb0f6" />
-      <path d="M2 9.5 H22 M8.5 9.5 L12 21 L15.5 9.5 M6.5 4 L8.5 9.5 L12 4 L15.5 9.5 L17.5 4" stroke="#84d8ff" strokeWidth={1.2} strokeLinejoin="round" fill="none" />
-    </>
-  ),
   target: (
     <>
       <circle cx={12} cy={12} r={9.5} fill="#ff4b4b" />

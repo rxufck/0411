@@ -208,7 +208,7 @@ export function Lesson({
           </>
         )}
         <div className="tiles">
-          <StatTile label="опыт" value={`+${finalXp}`} icon={<UiIcon id="gem" size={26} />} />
+          <StatTile label="опыт" value={`+${finalXp}`} icon={<UiIcon id="star" size={26} />} />
           <StatTile label="точность" value={`${Math.min(100, acc)}%`} icon={<UiIcon id="target" size={26} />} />
           <StatTile label="время" value={`${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`} icon={<UiIcon id="clock" size={26} />} />
         </div>

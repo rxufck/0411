@@ -11,7 +11,7 @@
 
 const APP = 'https://rxufck.github.io/0411/';
 const ORIGIN = 'https://rxufck.github.io';
-const PRICE = 150; // Stars в месяц
+const PRICE = 1; // Stars в месяц
 const PERIOD = 2592000; // 30 дней, единственный период подписки в Telegram
 const SILENT_AFTER_DAYS = 14;
 const DAILY = `${APP}daily/`; // виджеты «Тест на сегодня», делает scripts/make-widgets.cjs

@@ -164,6 +164,11 @@ export function Home({
         </button>
       </div>
 
+      {prem.trialLeft > 0 && (
+        <div className="plan-note">
+          Пробный день: весь курс открыт ещё {Math.max(1, Math.ceil(prem.trialLeft / 3600000))} ч. Потом нужна подписка.
+        </div>
+      )}
       <ExamPlan masteredQ={masteredQ} totalQ={totalQ} />
 
       <div className="course">
