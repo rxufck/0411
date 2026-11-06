@@ -64,6 +64,21 @@ function reminderText(u) {
   return 'Сегодня ещё не занимался. Реши один блок за пять минут.';
 }
 
+/** Тексты напоминаний со смайликами лежат на Pages (reminders.json) и меняются без правки Worker. */
+async function dailyText(x) {
+  try {
+    const j = await (await fetch(`${APP}reminders.json`)).json();
+    const t = todayUtc();
+    const k = Math.floor(Date.now() / 86400000);
+    const n = x.exam ? daysBetween(t, x.exam) : -1;
+    const pick = (a) => a[k % a.length].replace('{n}', n).replace('{s}', x.streak || '');
+    if (n >= 0 && n <= 14) return pick(n === 0 ? j.today : j.exam);
+    return pick(x.streak > 0 ? j.streak : j.idle);
+  } catch {
+    return reminderText(x);
+  }
+}
+
 const openBtn = (text) => ({ inline_keyboard: [[{ text, web_app: { url: APP } }]] });
 
 /**
@@ -77,12 +92,12 @@ async function sendToday(env, chatId, u) {
     const day = Math.floor(Date.now() / 86400000) % n;
     const html = await (await fetch(`${DAILY}${day}.html`)).text();
     const me = (await (await api(env, 'getMe', {})).json()).result.username;
-    const r = await api(env, 'sendWidget', { chat_id: chatId, html: html.replace('%BOT%', me), caption: reminderText(u) });
+    const r = await api(env, 'sendWidget', { chat_id: chatId, html: html.replace('%BOT%', me), caption: await dailyText(u) });
     if (r.ok || r.status === 403 || u.dbg) return r;
   } catch {
     /* виджет недоступен: ниже обычное сообщение */
   }
-  return api(env, 'sendMessage', { chat_id: chatId, text: reminderText(u), reply_markup: openBtn('Открыть тренажёр') });
+  return api(env, 'sendMessage', { chat_id: chatId, text: await dailyText(u), reply_markup: openBtn('Открыть тренажёр') });
 }
 
 async function remind(env) {
@@ -134,7 +149,7 @@ async function handleUpdate(env, up) {
     const name = msg.from?.first_name ? `, ${msg.from.first_name}` : '';
     await api(env, 'sendMessage', {
       chat_id: msg.chat.id,
-      text: `Привет${name}! Заходи, порешай тесты.\n\nОдин блок занимает минут пять: коротко теория и настоящие вопросы из билетов ГИБДД с подсказками. Начни с первого, а к экзамену придёшь уверенным.\n\nЕсли напоминания не нужны, напиши /stop.`,
+      text: `Привет${name}! 👋 Заходи, порешай тесты 🚗\n\nОдин блок занимает минут пять: коротко теория и настоящие вопросы из билетов ГИБДД с подсказками. Начни с первого, а к экзамену придёшь уверенным.\n\nЕсли напоминания не нужны, напиши /stop.`,
       reply_markup: openBtn('Открыть тренажёр'),
     });
   }

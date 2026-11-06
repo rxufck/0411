@@ -4991,3 +4991,18 @@ input:focus-visible {
 .sheet .paywall-card {
   padding-bottom: 8px;
 }
+
+/* Карточка: фото не сплющивается, когда текст длиннее экрана */
+.flash > * {
+  flex-shrink: 0;
+}
+.flash .illus,
+.flash .illus-photo img {
+  flex: none;
+  height: auto;
+  min-height: 0;
+}
+.flash .illus-photo img {
+  aspect-ratio: auto;
+  object-fit: contain;
+}

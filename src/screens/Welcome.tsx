@@ -8,7 +8,7 @@ export function Logo({ small }: { small?: boolean }) {
   return (
     <div className={`logo-big ${small ? 'small' : ''}`}>
       <span className="logo-pdd">ПДД</span>
-      <span className="logo-quest">квест</span>
+      <span className="logo-quest">РешиТест</span>
     </div>
   );
 }
