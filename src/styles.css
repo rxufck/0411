@@ -5138,3 +5138,15 @@ input:focus-visible {
   width: 16px;
   height: 16px;
 }
+
+/* Значок строго по центру плитки: общее правило «.ach div» делало плитку колонкой */
+.ach .ach-badge,
+.ach-cell .ach-badge {
+  display: grid;
+  place-items: center;
+  flex-direction: row;
+}
+.ach .ach-badge svg {
+  display: block;
+  margin: 0;
+}
