@@ -1,0 +1,20 @@
+<style>
+body{margin:0;padding:12px 12px max(12px,env(safe-area-inset-bottom))}
+h1{font-size:13px;font-weight:600;margin:0 0 6px;color:var(--tg-theme-hint-color)}
+p{margin:0 0 10px;font-weight:600}
+.o{display:block;width:100%;box-sizing:border-box;text-align:left;margin:6px 0;padding:10px 12px;border:1px solid var(--tg-theme-hint-color);border-radius:10px;background:var(--tg-theme-secondary-bg-color);color:var(--tg-theme-text-color);font:inherit}
+.ok{background:#2e9e4f;border-color:#2e9e4f;color:#fff}
+.no{background:#d03d3d;border-color:#d03d3d;color:#fff}
+#t{display:none;margin:10px 0;font-size:14px}
+#g{display:none;width:100%;padding:11px;border:0;border-radius:10px;background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color);font:inherit;font-weight:600}
+</style>
+<h1>Тест на сегодня</h1>
+<p id=q></p><div id=l></div><div id=t></div><button id=g>Открыть тренажёр</button>
+<script>
+var Q="Что необходимо сделать для извлечения инородного тела, попавшего в дыхательные пути пострадавшего?",A=["Уложить пострадавшего на свое колено лицом вниз и ударить кулаком по спине несколько раз","Вызвать рвоту, надавив на корень языка. При отрицательном результате ударить ребром ладони по спине пострадавшего либо встать спереди и сильно надавить кулаком на его живот.","Встать сбоку от пострадавшего, поддерживая его одной рукой под грудь, второй рукой наклонить корпус пострадавшего вперед головой вниз. Нанести пять резких ударов основанием ладони в область между лопаток. При отрицательном результате встать сзади, обхватить его обеими руками чуть выше пупка, сцепить свои руки в замок и пять раз резко надавить на область живота в направлении внутрь и кверху."],C=2,T="Признаки попадания инородного тела: шумное и затрудненное дыхание, невозможность говорить. Для извлечения инородного тела, попавшего в дыхательные пути пострадавшего, необходимо запомнить, что в первую очередь надо встать сбоку от пострадавшего, придерживая его одной рукой под грудь, второй рукой наклонить корпус вперед вниз головой. И только теперь ударить несколько раз ладонью по спине пострадавшего, в область между лопаток. Далее действовать, как изложено в правильном ответе.",R="",D=0,E=function(i){return document.getElementById(i)},L=E('l'),X=E('t'),G=E('g');
+E('q').textContent=Q;
+A.forEach(function(a,i){var b=document.createElement('button');b.className='o';b.textContent=a;b.onclick=function(){
+if(D)return;D=1;L.children[C].className='o ok';if(i!=C)b.className='o no';
+X.style.display=G.style.display='block';X.textContent=(i==C?'Верно. ':'Неверно. ')+T+(R?' ('+R+')':'')};L.appendChild(b)});
+G.onclick=function(){TelegramWidget.openTelegramLink('https://t.me/%BOT%/tests')};
+</script>

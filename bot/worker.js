@@ -14,6 +14,7 @@ const ORIGIN = 'https://rxufck.github.io';
 const PRICE = 150; // Stars в месяц
 const PERIOD = 2592000; // 30 дней, единственный период подписки в Telegram
 const SILENT_AFTER_DAYS = 14;
+const DAILY = `${APP}daily/`; // виджеты «Тест на сегодня», делает scripts/make-widgets.cjs
 
 const api = (env, method, body) =>
   fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/${method}`, {
@@ -65,6 +66,25 @@ function reminderText(u) {
 
 const openBtn = (text) => ({ inline_keyboard: [[{ text, web_app: { url: APP } }]] });
 
+/**
+ * «Тест на сегодня»: интерактивный виджет Telegram (Bot API sendWidget) с вопросом и разбором.
+ * Если виджет не отправился (метод недоступен, нет клиента), уходит обычное сообщение-напоминание.
+ * Ответ 403 (бот заблокирован) возвращаем как есть. С u.dbg возвращаем ответ sendWidget для отладки.
+ */
+async function sendToday(env, chatId, u) {
+  try {
+    const n = Number(await (await fetch(`${DAILY}n.txt`)).text());
+    const day = Math.floor(Date.now() / 86400000) % n;
+    const html = await (await fetch(`${DAILY}${day}.html`)).text();
+    const me = (await (await api(env, 'getMe', {})).json()).result.username;
+    const r = await api(env, 'sendWidget', { chat_id: chatId, html: html.replace('%BOT%', me), caption: reminderText(u) });
+    if (r.ok || r.status === 403 || u.dbg) return r;
+  } catch {
+    /* виджет недоступен: ниже обычное сообщение */
+  }
+  return api(env, 'sendMessage', { chat_id: chatId, text: reminderText(u), reply_markup: openBtn('Открыть тренажёр') });
+}
+
 async function remind(env) {
   const t = todayUtc();
   let cursor;
@@ -76,7 +96,7 @@ async function remind(env) {
       const u = await getUser(env, id);
       if (u.off || u.last === t || u.sent === t) continue;
       if (u.last && daysBetween(u.last, t) > SILENT_AFTER_DAYS) continue;
-      const r = await api(env, 'sendMessage', { chat_id: Number(id), text: reminderText(u), reply_markup: openBtn('Открыть тренажёр') });
+      const r = await sendToday(env, Number(id), u);
       if (r.status === 403) u.off = true; // человек заблокировал бота
       else u.sent = t;
       await putUser(env, id, u);
@@ -106,6 +126,8 @@ async function handleUpdate(env, up) {
     u.off = true;
     await putUser(env, id, u);
     await api(env, 'sendMessage', { chat_id: msg.chat.id, text: 'Напоминания отключены. Чтобы вернуть их, напиши /start.' });
+  } else if (text.startsWith('/today')) {
+    await sendToday(env, msg.chat.id, {});
   } else if (text.startsWith('/start')) {
     const u = await getUser(env, id);
     u.off = false;
@@ -126,6 +148,11 @@ export default {
 
     if (req.method === 'GET' && url.pathname === '/setup' && url.searchParams.get('key') === env.WEBHOOK_SECRET) {
       const r = await api(env, 'setWebhook', { url: url.origin, secret_token: env.WEBHOOK_SECRET, allowed_updates: ['message', 'pre_checkout_query'] });
+      return new Response(await r.text());
+    }
+    // Проба виджета: https://<worker>/send?key=<WEBHOOK_SECRET>&to=<id чата> возвращает ответ sendWidget.
+    if (req.method === 'GET' && url.pathname === '/send' && url.searchParams.get('key') === env.WEBHOOK_SECRET) {
+      const r = await sendToday(env, Number(url.searchParams.get('to')), { dbg: 1 });
       return new Response(await r.text());
     }
     if (req.method !== 'POST') return new Response('ok');

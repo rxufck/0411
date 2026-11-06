@@ -1,0 +1,20 @@
+<style>
+body{margin:0;padding:12px 12px max(12px,env(safe-area-inset-bottom))}
+h1{font-size:13px;font-weight:600;margin:0 0 6px;color:var(--tg-theme-hint-color)}
+p{margin:0 0 10px;font-weight:600}
+.o{display:block;width:100%;box-sizing:border-box;text-align:left;margin:6px 0;padding:10px 12px;border:1px solid var(--tg-theme-hint-color);border-radius:10px;background:var(--tg-theme-secondary-bg-color);color:var(--tg-theme-text-color);font:inherit}
+.ok{background:#2e9e4f;border-color:#2e9e4f;color:#fff}
+.no{background:#d03d3d;border-color:#d03d3d;color:#fff}
+#t{display:none;margin:10px 0;font-size:14px}
+#g{display:none;width:100%;padding:11px;border:0;border-radius:10px;background:var(--tg-theme-button-color);color:var(--tg-theme-button-text-color);font:inherit;font-weight:600}
+</style>
+<h1>Тест на сегодня</h1>
+<p id=q></p><div id=l></div><div id=t></div><button id=g>Открыть тренажёр</button>
+<script>
+var Q="Буксировка двухколесного мотоцикла разрешается:",A=["Только если мотоцикл с боковым прицепом, а водитель соответствующего транспортного средства имеет право на управления транспортными средствами в течение двух и более лет","Если мотоцикл с боковым прицепом","Если водитель соответствующего транспортного средства имеет право на управления транспортными средствами в течение двух и более лет"],C=0,T="Правила не запрещают буксировку двухколесного мотоцикла с боковым прицепом, равно как и буксировку таким мотоциклом пункт 20.4. При этом управление буксирующим ТС должно осуществляться водителем, имеющим право на управление ТС в течение 2 и более лет пункт 20.2(1). Буксировка такого мотоцикла требует повышенного внимания и осторожности, учитывая его недостаточную устойчивость и ограниченную маневренность.",R="",D=0,E=function(i){return document.getElementById(i)},L=E('l'),X=E('t'),G=E('g');
+E('q').textContent=Q;
+A.forEach(function(a,i){var b=document.createElement('button');b.className='o';b.textContent=a;b.onclick=function(){
+if(D)return;D=1;L.children[C].className='o ok';if(i!=C)b.className='o no';
+X.style.display=G.style.display='block';X.textContent=(i==C?'Верно. ':'Неверно. ')+T+(R?' ('+R+')':'')};L.appendChild(b)});
+G.onclick=function(){TelegramWidget.openTelegramLink('https://t.me/%BOT%/tests')};
+</script>
