@@ -4775,3 +4775,174 @@ input:focus-visible {
   border-radius: 999px;
   padding: 6px 10px;
 }
+
+/* Плашка пробного дня как кнопка и условия подписки */
+.plan-note-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  font: inherit;
+}
+.plan-note-btn u {
+  text-decoration-thickness: 2px;
+  text-underline-offset: 3px;
+}
+.paywall-terms {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: #f7f0e6;
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+}
+.paywall-terms div {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+.paywall-terms dt {
+  font-weight: 800;
+  flex: none;
+}
+.paywall-terms dd {
+  margin: 0;
+  text-align: right;
+  color: var(--muted, #77685f);
+  font-weight: 700;
+}
+
+/* Достижения: у закрытых виден тёмный силуэт значка */
+.ach-badge:not(.on) svg {
+  filter: brightness(0) opacity(0.28);
+}
+.ach-badge:not(.on) {
+  position: relative;
+}
+.ach-badge:not(.on)::after {
+  content: '';
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #b3a397 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3'%3E%3Crect x='6' y='11' width='12' height='9' rx='2' fill='white'/%3E%3Cpath d='M8.5 11V8a3.5 3.5 0 0 1 7 0v3'/%3E%3C/svg%3E") center / 10px no-repeat;
+}
+
+/* Полноэкранный режим Telegram: кнопки «Закрыть» и «⋯» лежат поверх страницы */
+.in-telegram .main {
+  padding-top: calc(14px + var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+}
+.in-telegram .screen-full::before {
+  content: '';
+  display: block;
+  flex: none;
+  height: calc(var(--tg-safe-area-inset-top, 0px) + var(--tg-content-safe-area-inset-top, 0px));
+}
+.in-telegram .nav {
+  padding-bottom: calc(8px + env(safe-area-inset-bottom) + var(--tg-safe-area-inset-bottom, 0px));
+}
+
+/* Анимации: короткие и спокойные, отключаются при «уменьшении движения» */
+@keyframes up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+}
+@keyframes barIn {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes flick {
+  0%, 100% {
+    transform: scale(1) rotate(0);
+  }
+  35% {
+    transform: scale(1.1) rotate(-4deg);
+  }
+  65% {
+    transform: scale(0.96) rotate(3deg);
+  }
+}
+@keyframes glow {
+  from {
+    box-shadow: 0 0 0 0 rgba(56, 130, 1, 0.45);
+  }
+  to {
+    box-shadow: 0 0 0 12px rgba(56, 130, 1, 0);
+  }
+}
+.main > * {
+  animation: up 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.course .topic-row,
+.steps .step,
+.plan-card,
+.progress-card {
+  animation: up 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.course .topic-row:nth-child(2), .steps .step:nth-child(2) { animation-delay: 50ms; }
+.course .topic-row:nth-child(3), .steps .step:nth-child(3) { animation-delay: 100ms; }
+.course .topic-row:nth-child(4), .steps .step:nth-child(4) { animation-delay: 150ms; }
+.course .topic-row:nth-child(5), .steps .step:nth-child(5) { animation-delay: 200ms; }
+.course .topic-row:nth-child(n + 6), .steps .step:nth-child(n + 6) { animation-delay: 250ms; }
+.topic-row,
+.step,
+.plan-card,
+.card,
+.btn,
+.option,
+.nav-btn {
+  transition: transform 0.14s ease, box-shadow 0.14s ease, background-color 0.2s ease, border-color 0.2s ease;
+}
+.topic-row:active,
+.step:active,
+.plan-card:active,
+.option:active:not(:disabled),
+.nav-btn:active {
+  transform: scale(0.98);
+}
+.btn:active:not(:disabled) {
+  transform: translateY(2px) scale(0.99);
+}
+.pc-bar i,
+.topic-row-bar i,
+.step-bar-track i,
+.plan-bar i,
+.pbar-fill,
+.mini-bar div {
+  transform-origin: left center;
+  animation: barIn 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transition: width 0.5s ease;
+}
+.option.correct {
+  animation: pop 0.4s ease-out, glow 0.7s ease-out;
+}
+.option.wrong {
+  animation: shake 0.4s ease-out;
+}
+.phead-stat .ico svg {
+  animation: flick 3.2s ease-in-out infinite;
+  transform-origin: 50% 80%;
+}
+.topic-row.current .topic-row-go,
+.step.current .step-pill.on {
+  animation: glow 1.8s ease-out infinite;
+}
+.nav-btn.on svg {
+  animation: pop 0.35s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .main > *, .course .topic-row, .steps .step, .plan-card, .progress-card,
+  .pc-bar i, .topic-row-bar i, .step-bar-track i, .plan-bar i, .pbar-fill, .mini-bar div,
+  .option.correct, .option.wrong, .phead-stat .ico svg, .topic-row.current .topic-row-go, .nav-btn.on svg {
+    animation: none !important;
+  }
+}

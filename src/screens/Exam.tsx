@@ -247,7 +247,6 @@ export function ExamScreen({
             ))}
           </div>
         )}
-        {db && <p className="muted small center">{db.source}</p>}
         {chooser === 'tickets' && db && (
           <Sheet onClose={() => setChooser(null)} title="Билеты ГИБДД">
             <div className="ticket-legend muted small">

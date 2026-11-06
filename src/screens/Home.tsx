@@ -4,7 +4,7 @@ import { controlPass, controlSize, isMastered, nextStep, nextUnit, STAGES, stepK
 import { topicUnits, type Unit } from '../data/units';
 import { useTickets } from '../data/tickets';
 import { todayStr, useProgress, type Progress } from '../store';
-import { usePremium } from '../premium';
+import { openPaywall, usePremium } from '../premium';
 import { UiIcon } from '../components/Icons';
 import { BadgeIcon, Btn, ProfileHeader, Sheet, TopicBadge } from '../components/UI';
 import { DAILY_TASKS } from '../data/goals';
@@ -165,9 +165,12 @@ export function Home({
       </div>
 
       {prem.trialLeft > 0 && (
-        <div className="plan-note">
-          Пробный день: весь курс открыт ещё {Math.max(1, Math.ceil(prem.trialLeft / 3600000))} ч. Потом нужна подписка.
-        </div>
+        <button className="plan-note plan-note-btn" onClick={openPaywall}>
+          <span>
+            Пробный день: весь курс открыт ещё {Math.max(1, Math.ceil(prem.trialLeft / 3600000))} ч. <u>Условия подписки</u>
+          </span>
+          <span className="chev">›</span>
+        </button>
       )}
       <ExamPlan masteredQ={masteredQ} totalQ={totalQ} />
 

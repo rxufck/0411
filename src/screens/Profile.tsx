@@ -176,7 +176,7 @@ const ACH_ICON: Record<string, string> = { first: 'check', theory: 'cards', sign
 function Badge({ id, color, on }: { id: string; color: string; on: boolean }) {
   return (
     <div className={`ach-badge ${on ? 'on' : ''}`} style={on ? { background: color, boxShadow: '0 3px 0 rgba(0,0,0,.25)' } : undefined}>
-      <BadgeIcon id={on ? ACH_ICON[id] ?? 'star' : 'lock'} dark={!on} />
+      <BadgeIcon id={ACH_ICON[id] ?? 'star'} />
     </div>
   );
 }

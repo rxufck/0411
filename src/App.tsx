@@ -182,7 +182,7 @@ export default function App() {
           </button>
         ))}
       </nav>
-      <main className="main">
+      <main className="main" key={page ?? tab}>
         {page === 'daily' && <DailyScreen onBack={() => setPage(null)} />}
                 {!page && tab === 'learn' && <Home onTopic={(t) => paid(() => setSheet(t), freeTopic(t))} onExam={() => openTab('exam')} onDaily={() => setPage('daily')} onProfile={() => openTab('profile')} />}
         {!page && tab === 'exam' && (
