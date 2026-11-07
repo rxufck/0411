@@ -5172,3 +5172,17 @@ input:focus-visible {
   align-items: center;
   gap: 6px;
 }
+
+/* Фото не загрузилось: понятная кнопка вместо пустой рамки */
+.illus-retry {
+  width: 100%;
+  min-height: 120px;
+  padding: 16px;
+  border: 2px dashed var(--line, #e3d7c8);
+  border-radius: 16px;
+  background: #f7f0e6;
+  color: var(--muted, #77685f);
+  font: inherit;
+  font-weight: 800;
+  text-align: center;
+}
