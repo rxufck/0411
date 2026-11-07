@@ -13,7 +13,7 @@ import { Lesson, type LessonMode } from './screens/Lesson';
 import { Theory } from './screens/Theory';
 import { Cards } from './screens/Cards';
 import { ExamScreen } from './screens/Exam';
-import { ReviewScreen } from './screens/Review';
+import { ReviewScreen, type ReviewTab } from './screens/Review';
 import { DailyScreen, ProfileScreen } from './screens/Profile';
 import { Logo, Welcome } from './screens/Welcome';
 import { NavIcon } from './components/UI';
@@ -37,6 +37,8 @@ export default function App() {
   const { p, addXp, completeStep } = store;
   const [tab, setTab] = useState<Tab>('learn');
   const [page, setPage] = useState<null | 'daily'>(null);
+  // Вкладка «Повторения» помнится: после урока человек возвращается туда, откуда пришёл.
+  const [reviewTab, setReviewTab] = useState<ReviewTab>('mistakes');
   const [sheet, setSheet] = useState<TopicId | null>(null);
   const [overlay, setOverlay] = useState<Overlay | null>(null);
   // Кнопка «Назад» Telegram закрывает верхний слой: окно темы, урок или страницу.
@@ -193,12 +195,14 @@ export default function App() {
             onQuestionNo={(n) => db && quiz(`Все вопросы №${n}`, db.questions.filter((q) => q.num === n).sort((x, y) => x.ticket - y.ticket))}
             onMarathon={() => db && quiz('Марафон', pickFresh(db.questions, 50, seen))}
             onBookmarks={() => reviewOrQuiz('quiz', 'Закладки', p.bookmarks)}
-            onMistakes={() => openTab('review')}
+            onMistakes={() => (setReviewTab('mistakes'), openTab('review'))}
             onProfile={() => openTab('profile')}
           />
         )}
         {!page && tab === 'review' && (
           <ReviewScreen
+            tab={reviewTab}
+            setTab={setReviewTab}
             onMistakes={(ids) => paid(() => reviewOrQuiz('review', 'Повторение', ids, { color: '#ff9600' }))}
             onTopicReview={(t) => paid(() => lesson({ mode: 'review', title: `Повторение: ${topicById(t).title}`, color: topicById(t).color, topic: t, exercises: buildReview(t, p.stats) }))}
             onTheory={(t) => paid(() => setOverlay({ kind: 'theory', topic: t, readOnly: true }))}

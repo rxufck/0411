@@ -136,11 +136,10 @@ export function buildControl(topic: TopicId): Exercise[] {
   return sample(officialByTopic(topic), controlSize(topic)).map(mc);
 }
 
-/** Повторение темы: сначала то, что решалось хуже, потом остальное. */
+/** Повторение темы: все вопросы темы, сначала те, что решались хуже. Выйти можно в любой момент. */
 export function buildReview(topic: TopicId, stats: Record<string, { box: number; seen: number }>): Exercise[] {
   return shuffle(officialByTopic(topic))
     .sort((a, b) => (stats[a.id]?.box ?? -1) - (stats[b.id]?.box ?? -1))
-    .slice(0, 8)
     .map(mc);
 }
 

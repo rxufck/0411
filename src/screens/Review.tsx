@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { TopicId } from '../types';
 import { findQuestion, isMastered, officialByTopic, shuffle, TOPICS } from '../data/course';
 import { ticketCard } from '../data/units';
@@ -19,7 +18,11 @@ export const errorsWord = (n: number) => `${n} ${plural(n, 'ошибка', 'ош
 
 const topicNameOf = (t: TopicId) => TOPICS.find((x) => x.topic === t)?.title ?? '';
 
+export type ReviewTab = 'mistakes' | 'cards' | 'all';
+
 export function ReviewScreen({
+  tab,
+  setTab,
   onMistakes,
   onTopicReview,
   onTheory,
@@ -27,6 +30,8 @@ export function ReviewScreen({
   onReadCard,
   onTrain,
 }: {
+  tab: ReviewTab;
+  setTab: (t: ReviewTab) => void;
   onMistakes: (ids: string[]) => void;
   onTopicReview: (t: TopicId) => void;
   onTheory: (t: TopicId) => void;
@@ -35,7 +40,6 @@ export function ReviewScreen({
   onTrain: (title: string, ids: string[]) => void;
 }) {
   const { p } = useProgress();
-  const [tab, setTab] = useState<'mistakes' | 'cards' | 'all'>('mistakes');
   const byTopic = new Map<TopicId, string[]>();
   p.mistakes.forEach((id) => {
     const q = findQuestion(id);
